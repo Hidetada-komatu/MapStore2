@@ -149,6 +149,24 @@ describe('OpenlayersMap', () => {
         expect(get('EPSG:31468').getAxisOrientation()).toBe('neu');
     });
 
+    it('renders a map on an external window', () => {
+        const popup = window.open("", "", "width=300,height=300,left=200,top=200");
+        try {
+            const container = document.createElement("div");
+            popup.document.body.appendChild(container);
+            const Comp = () => {
+                return ReactDOM.createPortal(<OpenlayersMap center={{ y: 43.9, x: 10.3 }} zoom={11} document={popup.document}
+                />, container);
+            };
+            ReactDOM.render(<Comp/>, document.getElementById("map"));
+            const map = popup.document.getElementById("map");
+            expect(map).toExist();
+            expect(map.querySelectorAll(".ol-viewport").length).toBe(1);
+        } finally {
+            popup.close();
+        }
+    });
+
     it('check if the handler for "click" event is called with elevation', () => {
         const testHandlers = {
             handler: () => { }
@@ -501,7 +519,7 @@ describe('OpenlayersMap', () => {
         olMap.on('moveend', () => {
             // The first call is triggered as soon as the map component is mounted, the second one is as a result of setZoom
             expect(spy.calls.length).toEqual(2);
-            expect(spy.calls[1].arguments.length).toEqual(6);
+            expect(spy.calls[1].arguments.length).toEqual(8);
             expect(normalizeFloat(spy.calls[1].arguments[0].y, 1)).toBe(43.9);
             expect(normalizeFloat(spy.calls[1].arguments[0].x, 1)).toBe(10.3);
             expect(spy.calls[1].arguments[1]).toBe(12);
@@ -533,7 +551,7 @@ describe('OpenlayersMap', () => {
         olMap.on('moveend', () => {
             // The first call is triggered as soon as the map component is mounted, the second one is as a result of setCenter
             expect(spy.calls.length).toEqual(2);
-            expect(spy.calls[1].arguments.length).toEqual(6);
+            expect(spy.calls[1].arguments.length).toEqual(8);
             expect(normalizeFloat(spy.calls[1].arguments[0].y, 1)).toBe(44);
             expect(normalizeFloat(spy.calls[1].arguments[0].x, 1)).toBe(10);
             expect(spy.calls[1].arguments[1]).toBe(11);

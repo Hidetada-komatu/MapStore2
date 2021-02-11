@@ -8,11 +8,19 @@
 const React = require('react');
 const ReactDOM = require('react-dom');
 const LeafletMap = require('../Map.jsx');
-const LeafLetLayer = require('../Layer.jsx');
+const LeafLetLayer = require('../Layer.jsx').default;
 const expect = require('expect');
-const mapUtils = require('../../../../utils/MapUtils');
 const {isNumber} = require('lodash');
-const MapUtils = require('../../../../utils/MapUtils');
+const {
+    clearHooks,
+    getBbox,
+    registerHook,
+    GET_PIXEL_FROM_COORDINATES_HOOK,
+    GET_COORDINATES_FROM_PIXEL_HOOK,
+    getHook,
+    createRegisterHooks,
+    ZOOM_TO_EXTENT_HOOK
+} = require('../../../../utils/MapUtils');
 
 require('leaflet-draw');
 
@@ -58,7 +66,7 @@ describe('LeafletMap', () => {
             document.head.removeChild(mapStyle);
             mapStyle = undefined;
         }
-        MapUtils.clearHooks();
+        clearHooks();
     });
 
     it('creates a div for leaflet map with given id', () => {
@@ -124,6 +132,24 @@ describe('LeafletMap', () => {
         expect(document.getElementsByClassName('leaflet-layer').length).toBe(1);
     });
 
+    it('renders a map on an external window', () => {
+        const popup = window.open("", "", "width=300,height=300,left=200,top=200");
+        try {
+            const container = document.createElement("div");
+            popup.document.body.appendChild(container);
+            const Comp = () => {
+                return ReactDOM.createPortal(<LeafletMap center={{ y: 43.9, x: 10.3 }} zoom={11} document={popup.document}
+                />, container);
+            };
+            ReactDOM.render(<Comp/>, document.getElementById("container"));
+            const map = popup.document.getElementById("map");
+            expect(map).toExist();
+            expect(map.querySelectorAll(".leaflet-map-pane").length).toBe(1);
+        } finally {
+            popup.close();
+        }
+    });
+
     it('check layers for elevation', () => {
         var options = {
             "url": "http://fake",
@@ -158,7 +184,7 @@ describe('LeafletMap', () => {
 
         leafletMap.on('moveend', () => {
             expect(spy.calls.length).toEqual(expectedCalls);
-            expect(spy.calls[0].arguments.length).toEqual(6);
+            expect(spy.calls[0].arguments.length).toEqual(8);
 
             expect(spy.calls[0].arguments[0].y).toEqual(43.9);
             expect(spy.calls[0].arguments[0].x).toEqual(10.3);
@@ -414,7 +440,7 @@ describe('LeafletMap', () => {
         // instanciating the map that will be used to compute the bounfing box
         let map = ReactDOM.render(<LeafletMap id="mymap" center={{y: 43.9, x: 10.3}} zoom={11} mapOptions={{zoomAnimation: false}}/>, document.getElementById("container"));
         // computing the bounding box for the new center and the new zoom
-        const bbox = mapUtils.getBbox({y: 44, x: 10}, 5);
+        const bbox = getBbox({y: 44, x: 10}, 5);
         // update the map with the new center and the new zoom so we can check our computed bouding box
         map = ReactDOM.render(<LeafletMap id="mymap" center={{y: 44, x: 10}} zoom={5}/>, document.getElementById("container"));
         const mapBbox = map.map.getBounds().toBBoxString().split(',');
@@ -474,10 +500,10 @@ describe('LeafletMap', () => {
     });
 
     it('test GET_PIXEL_FROM_COORDINATES_HOOK/GET_COORDINATES_FROM_PIXEL_HOOK hook registration', () => {
-        mapUtils.registerHook(mapUtils.GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
-        mapUtils.registerHook(mapUtils.GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
-        let getPixelFromCoordinates = mapUtils.getHook(mapUtils.GET_PIXEL_FROM_COORDINATES_HOOK);
-        let getCoordinatesFromPixel = mapUtils.getHook(mapUtils.GET_COORDINATES_FROM_PIXEL_HOOK);
+        registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
+        registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
+        let getPixelFromCoordinates = getHook(GET_PIXEL_FROM_COORDINATES_HOOK);
+        let getCoordinatesFromPixel = getHook(GET_COORDINATES_FROM_PIXEL_HOOK);
         expect(getPixelFromCoordinates).toNotExist();
         expect(getCoordinatesFromPixel).toNotExist();
 
@@ -485,13 +511,13 @@ describe('LeafletMap', () => {
             document.getElementById("container"));
         expect(map).toExist();
 
-        getPixelFromCoordinates = mapUtils.getHook(mapUtils.GET_PIXEL_FROM_COORDINATES_HOOK);
-        getCoordinatesFromPixel = mapUtils.getHook(mapUtils.GET_COORDINATES_FROM_PIXEL_HOOK);
+        getPixelFromCoordinates = getHook(GET_PIXEL_FROM_COORDINATES_HOOK);
+        getCoordinatesFromPixel = getHook(GET_COORDINATES_FROM_PIXEL_HOOK);
         expect(getPixelFromCoordinates).toExist();
         expect(getCoordinatesFromPixel).toExist();
     });
     it('test ZOOM_TO_EXTENT_HOOK', () => {
-        mapUtils.registerHook(mapUtils.ZOOM_TO_EXTENT_HOOK, undefined);
+        registerHook(ZOOM_TO_EXTENT_HOOK, undefined);
 
         const testHandlers = {
             onMapViewChanges: () => {}
@@ -510,7 +536,7 @@ describe('LeafletMap', () => {
             onMapViewChanges={testHandlers.onMapViewChanges} />,
         document.getElementById("container"));
         expect(map).toExist();
-        const hook = mapUtils.getHook(mapUtils.ZOOM_TO_EXTENT_HOOK);
+        const hook = getHook(ZOOM_TO_EXTENT_HOOK);
         expect(hook).toExist();
         hook([0, 0, 20, 20], {crs: "EPSG:4326"});
         expect(spy).toHaveBeenCalled();
@@ -660,14 +686,14 @@ describe('LeafletMap', () => {
             const map = ReactDOM.render(<LeafletMap id="mymap" center={{y: 43.9, x: 10.3}} zoom={11} mapOptions={{zoomAnimation: false}}/>, document.getElementById("container"));
             expect(map).toExist();
             expect(ReactDOM.findDOMNode(map).id).toBe('mymap');
-            expect(MapUtils.getHook(MapUtils.ZOOM_TO_EXTENT_HOOK)).toExist();
+            expect(getHook(ZOOM_TO_EXTENT_HOOK)).toExist();
         });
         it("with custom hookRegister", () => {
-            const customHooRegister = MapUtils.createRegisterHooks();
+            const customHooRegister = createRegisterHooks();
             const map = ReactDOM.render(<LeafletMap hookRegister={customHooRegister} id="mymap" center={{y: 43.9, x: 10.3}} zoom={11} mapOptions={{zoomAnimation: false}}/>, document.getElementById("container"));
             expect(map).toExist();
             expect(ReactDOM.findDOMNode(map).id).toBe('mymap');
-            expect(customHooRegister.getHook(MapUtils.ZOOM_TO_EXTENT_HOOK)).toExist();
+            expect(customHooRegister.getHook(ZOOM_TO_EXTENT_HOOK)).toExist();
         });
     });
 });

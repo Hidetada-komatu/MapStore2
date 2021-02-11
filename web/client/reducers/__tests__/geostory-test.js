@@ -27,7 +27,10 @@ import {
     update,
     updateCurrentPage,
     updateSetting,
-    removeResource
+    removeResource,
+    setPendingChanges,
+    updateUrlOnScroll,
+    updateMediaEditorSettings
 } from '../../actions/geostory';
 import geostory from '../../reducers/geostory';
 import {
@@ -47,7 +50,9 @@ import {
     resourcesSelector,
     sectionAtIndexSelectorCreator,
     sectionsSelector,
-    settingsSelector
+    settingsSelector,
+    hasPendingChanges,
+    updateUrlOnScrollSelector
 } from '../../selectors/geostory';
 import TEST_STORY from "../../test-resources/geostory/sampleStory_1.json";
 import TEST_STORY_1 from "../../test-resources/geostory/story_state.json";
@@ -161,7 +166,7 @@ describe('geostory reducer', () => {
     });
     describe('remove', () => {
         const STATE_STORY = geostory(undefined, setCurrentStory(TEST_STORY));
-        it.skip('as entry', () => {
+        it('as entry', () => {
             const SECTION_ID = TEST_STORY.sections[0].id;
             const CONTENT_ID = TEST_STORY.sections[0].contents[0].id;
             const pathToContentHtml = `sections[{"id":"${SECTION_ID}"}].contents[{"id":"${CONTENT_ID}"}].html`;
@@ -409,5 +414,41 @@ describe('geostory reducer', () => {
         expect(contC).toExist();
         expect(contC.resourceId).toNotExist();
         expect(contC.map).toNotExist();
+    });
+    it('setPendingChanges', () => {
+        expect(hasPendingChanges( { geostory: geostory(undefined, setCurrentStory(TEST_STORY)) } )).toBeFalsy();
+        expect(hasPendingChanges( { geostory: geostory(undefined, setPendingChanges(true)) } )).toBeTruthy();
+        expect(hasPendingChanges( { geostory: geostory(undefined, setPendingChanges(false)) } )).toBeFalsy();
+    });
+    it('updateUrlOnScroll', () => {
+        expect(updateUrlOnScrollSelector( { geostory: geostory(undefined, updateUrlOnScroll(true)) } )).toBeTruthy();
+        expect(updateUrlOnScrollSelector( { geostory: geostory(undefined, updateUrlOnScroll(false)) } )).toBeFalsy();
+    });
+    it('should update mediaEditorSettings width updateMediaEditorSettings', () => {
+        const mediaEditorSettings = {
+            sourceId: 'geostory',
+            mediaTypes: {
+                image: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                },
+                video: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                },
+                map: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                }
+            },
+            sources: {
+                geostory: {
+                    name: 'Current story',
+                    type: 'geostory'
+                }
+            }
+        };
+        const state = geostory(undefined, updateMediaEditorSettings(mediaEditorSettings));
+        expect(state.mediaEditorSettings).toBe(mediaEditorSettings);
     });
 });

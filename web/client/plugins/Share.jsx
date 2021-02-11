@@ -13,41 +13,22 @@ import { Glyphicon } from 'react-bootstrap';
 import Message from '../components/I18N/Message';
 import { toggleControl, setControlProperty } from '../actions/controls';
 import ConfigUtils from '../utils/ConfigUtils';
-import ShareUtils from '../utils/ShareUtils';
+import {getApiUrl, getConfigUrl} from '../utils/ShareUtils';
+import {getExtentFromViewport} from '../utils/CoordinatesUtils';
 import { versionSelector } from '../selectors/version';
-import * as shareEpics from '../epics/queryparams';
+import shareEpics from '../epics/queryparams';
 import SharePanel from '../components/share/SharePanel';
 import { createSelector } from 'reselect';
 import { mapSelector } from '../selectors/map';
 import { currentContextSelector } from '../selectors/context';
-import { reprojectBbox, getViewportGeometry } from '../utils/CoordinatesUtils';
 import { get } from 'lodash';
 import controls from '../reducers/controls';
-
-/**
- * Get wider and valid extent in viewport
- * @private
- * @param bbox {object} viewport bbox
- * @param bbox.bounds {object} bounds of bbox {minx, miny, maxx, maxy}
- * @param bbox.crs {string} bbox crs
- * @param dest {string} SRS of the returned extent
- * @return {array} [ minx, miny, maxx, maxy ]
-*/
-const getExtentFromViewport = ({ bounds, crs } = {}, dest = 'EPSG:4326') => {
-    if (!bounds || !crs) return null;
-    const { extent } = getViewportGeometry(bounds, crs);
-    if (extent.length === 4) {
-        return reprojectBbox(extent, crs, dest);
-    }
-    const [ rightExtentWidth, leftExtentWidth ] = extent.map((bbox) => bbox[2] - bbox[0]);
-    return rightExtentWidth > leftExtentWidth
-        ? reprojectBbox(extent[0], crs, dest)
-        : reprojectBbox(extent[1], crs, dest);
-};
-
+import {featureInfoClick, changeFormat, hideMapinfoMarker} from '../actions/mapInfo';
+import { clickPointSelector} from '../selectors/mapInfo';
+import { updateUrlOnScrollSelector } from '../selectors/geostory';
 /**
  * Share Plugin allows to share the current URL (location.href) in some different ways.
- * You can share it on socials networks(facebook,twitter,google+,linkedin)
+ * You can share it on socials networks(facebook,twitter,google+,linkedIn)
  * copying the direct link
  * copying the embedded code
  * using the QR code with mobile apps
@@ -61,7 +42,21 @@ const getExtentFromViewport = ({ bounds, crs } = {}, dest = 'EPSG:4326') => {
  * @prop {boolean} [showAPI] default true, if false, hides the API entry of embed.
  * @prop {function} [onClose] function to call on close window event.
  * @prop {function} [getCount] function used to get the count for social links.
- * @prop {object} [advancedSettings] show advanced settings (bbox param or home button) f.e {bbox: true, homeButton: true}
+ * @prop {object} [cfg.advancedSettings] show advanced settings (bbox param, centerAndZoom param or home button) f.e {bbox: true, homeButton: true, centerAndZoom: true}
+ * @prop {boolean} [cfg.advancedSettings.bbox] if true, the share url is generated with the bbox param
+ * @prop {boolean} [cfg.advancedSettings.centerAndZoom] if true, the share url is generated with the center and zoom params
+ * @prop {string} [cfg.advancedSettings.defaultEnabled] the value can either be "bbox", "centerAndZoom", "markerAndZoom". Based on the value, the checkboxes corresponding to the param will be enabled by default
+ * @prop {string} [cfg.advancedSettings.hideInTab] based on the value (i.e value can be "link" or "social" or "embed"), the advancedSettings is hidden in the tab value specified
+ * For example this will display marker, coordinates and zoom fields with the marker enabled by default generating share url with respective params
+ * ```
+ * "cfg": {
+ *    "advancedSettings" : {
+ *       "bbox": true,
+ *       "centerAndZoom": true,
+ *       "defaultEnabled": "markerAndZoom"
+ *    }
+ *  }
+ * ```
  */
 
 const Share = connect(createSelector([
@@ -69,25 +64,37 @@ const Share = connect(createSelector([
     versionSelector,
     mapSelector,
     currentContextSelector,
-    state => get(state, 'controls.share.settings', {})
-], (isVisible, version, map, context, settings) => ({
+    state => get(state, 'controls.share.settings', {}),
+    (state) => state.mapInfo && state.mapInfo.formatCoord || ConfigUtils.getConfigProp("defaultCoordinateFormat"),
+    clickPointSelector,
+    updateUrlOnScrollSelector
+], (isVisible, version, map, context, settings, formatCoords, point, isScrollPosition) => ({
     isVisible,
     shareUrl: location.href,
-    shareApiUrl: ShareUtils.getApiUrl(location.href),
-    shareConfigUrl: ShareUtils.getConfigUrl(location.href, ConfigUtils.getConfigProp('geoStoreUrl')),
+    shareApiUrl: getApiUrl(location.href),
+    shareConfigUrl: getConfigUrl(location.href, ConfigUtils.getConfigProp('geoStoreUrl')),
     version,
     bbox: isVisible && map && map.bbox && getExtentFromViewport(map.bbox),
+    center: map && map.center && ConfigUtils.getCenter(map.center),
+    zoom: map && map.zoom,
     showAPI: !context,
     embedOptions: {
         showTOCToggle: !context
     },
     settings,
     advancedSettings: {
-        bbox: true
-    }
+        bbox: true,
+        centerAndZoom: true
+    },
+    formatCoords: formatCoords,
+    point,
+    isScrollPosition
 })), {
     onClose: toggleControl.bind(null, 'share', null),
-    onUpdateSettings: setControlProperty.bind(null, 'share', 'settings')
+    hideMarker: hideMapinfoMarker,
+    onUpdateSettings: setControlProperty.bind(null, 'share', 'settings'),
+    onSubmitClickPoint: featureInfoClick,
+    onChangeFormat: changeFormat
 })(SharePanel);
 
 export const SharePlugin = assign(Share, {
@@ -95,7 +102,19 @@ export const SharePlugin = assign(Share, {
     BurgerMenu: {
         name: 'share',
         position: 1000,
+        priority: 1,
+        doNotHide: true,
         text: <Message msgId="share.title"/>,
+        icon: <Glyphicon glyph="share-alt"/>,
+        action: toggleControl.bind(null, 'share', null)
+    },
+    Toolbar: {
+        name: 'share',
+        alwaysVisible: true,
+        position: 2,
+        priority: 0,
+        doNotHide: true,
+        tooltip: "share.title",
         icon: <Glyphicon glyph="share-alt"/>,
         action: toggleControl.bind(null, 'share', null)
     }

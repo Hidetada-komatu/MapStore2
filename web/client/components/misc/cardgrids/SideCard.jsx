@@ -7,9 +7,10 @@
  */
 
 
-const React = require('react');
+import React from 'react';
 
-const Loader = require('../Loader');
+import { isObject } from 'lodash';
+import Loader from '../Loader';
 
 /**
  * Component for rendering a rectangular card with preview, title, description and caption.
@@ -35,7 +36,7 @@ const Loader = require('../Loader');
  * @prop {node}         tools           add a node to the right of card
  */
 
-module.exports = ({
+export default ({
     body,
     caption,
     infoExtra,
@@ -80,7 +81,7 @@ module.exports = ({
                                 <span>{title}</span>
                             </div>}
                             {description && <div className="mapstore-side-card-desc">
-                                <span>{description}</span>
+                                {isObject(description) ? description : <span>{description}</span>}
                             </div>}
                             {caption && <div className="mapstore-side-card-caption">
                                 <span>{caption}</span>

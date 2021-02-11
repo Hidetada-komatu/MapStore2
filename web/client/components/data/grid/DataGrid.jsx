@@ -5,9 +5,10 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const PropTypes = require('prop-types');
-const Grid = require('react-data-grid');
-const ReactDOM = require('react-dom');
+import PropTypes from 'prop-types';
+
+import Grid from 'react-data-grid';
+import ReactDOM from 'react-dom';
 
 class DataGrid extends Grid {
     static propTypes = {
@@ -47,7 +48,7 @@ class DataGrid extends Grid {
                 this.setCanvasListener();
             }
             // When exiting feature editing we reset previous scroll
-            if (oldProps.isFocused && !this.props.isFocused ) {
+            if (this.canvas && oldProps.isFocused && !this.props.isFocused ) {
                 this.canvas.scrollTop = this.scroll;
             } else if (this.canvas && this.props.minHeight !== oldProps.minHeight) {
                 this.scrollListener(); // Emit scroll on  grid resize
@@ -80,4 +81,4 @@ class DataGrid extends Grid {
     }
 }
 
-module.exports = DataGrid;
+export default DataGrid;

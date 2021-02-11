@@ -1,4 +1,5 @@
-const PropTypes = require('prop-types');
+import PropTypes from 'prop-types';
+
 /**
  * Copyright 2016, GeoSolutions Sas.
  * All rights reserved.
@@ -7,14 +8,15 @@ const PropTypes = require('prop-types');
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const {Grid, Row, Col} = require('react-bootstrap');
-const ColorPicker = require('./ColorPicker').default;
-const StyleCanvas = require('./StyleCanvas');
-const numberLocalizer = require('react-widgets/lib/localizers/simple-number');
+import React from 'react';
+
+import { Grid, Row, Col } from 'react-bootstrap';
+import ColorPicker from './ColorPicker';
+import StyleCanvas from './StyleCanvas';
+import numberLocalizer from 'react-widgets/lib/localizers/simple-number';
 numberLocalizer();
-const {NumberPicker} = require('react-widgets');
-require('react-widgets/lib/less/react-widgets.less');
+import { NumberPicker } from 'react-widgets';
+import 'react-widgets/lib/less/react-widgets.less';
 
 class StylePolygon extends React.Component {
     static propTypes = {
@@ -46,7 +48,14 @@ class StylePolygon extends React.Component {
                                 onChangeColor={(color) => {if (color) { this.props.setStyleParameter("color", color); } }} />
                         </Col>
                         <Col xs={8} style={{paddingRight: 0, paddingLeft: 30}}>
-                            <NumberPicker onChange={(number) => {this.props.setStyleParameter("width", number); }} min={1} max={15} step={1} value={this.props.shapeStyle.width}/>
+                            <NumberPicker
+                                min={1} max={15} step={1}
+                                value={this.props.shapeStyle.width}
+                                onChange={(number) => {
+                                    if (number !== this.props.shapeStyle.width) {
+                                        this.props.setStyleParameter("width", number);
+                                    }
+                                }}  />
                         </Col>
                     </Row>
                     <Row style={{marginTop: 4}}>
@@ -65,4 +74,4 @@ class StylePolygon extends React.Component {
     }
 }
 
-module.exports = StylePolygon;
+export default StylePolygon;

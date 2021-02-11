@@ -6,16 +6,72 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const expect = require('expect');
+import expect from 'expect';
 
-const { ZOOM_TO_POINT, clickOnMap, CHANGE_MAP_VIEW } = require('../../actions/map');
-const { FEATURE_INFO_CLICK, UPDATE_CENTER_TO_MARKER, PURGE_MAPINFO_RESULTS, NEW_MAPINFO_REQUEST, LOAD_FEATURE_INFO, NO_QUERYABLE_LAYERS, ERROR_FEATURE_INFO, EXCEPTIONS_FEATURE_INFO, SHOW_MAPINFO_MARKER, HIDE_MAPINFO_MARKER, GET_VECTOR_INFO, SET_EDIT_FEATURE_QUERY, loadFeatureInfo, featureInfoClick, closeIdentify, toggleHighlightFeature, editLayerFeatures } = require('../../actions/mapInfo');
-const { getFeatureInfoOnFeatureInfoClick, zoomToVisibleAreaEpic, onMapClick, closeFeatureAndAnnotationEditing, handleMapInfoMarker, featureInfoClickOnHighligh, closeFeatureInfoOnCatalogOpenEpic, identifyEditLayerFeaturesEpic } = require('../identify').default;
-const { CLOSE_ANNOTATIONS } = require('../../actions/annotations');
-const { testEpic, TEST_TIMEOUT, addTimeoutEpic } = require('./epicTestUtils');
-const { registerHook } = require('../../utils/MapUtils');
-const { setControlProperties } = require('../../actions/controls');
-const { BROWSE_DATA } = require('../../actions/layers');
+import { LOCATION_CHANGE } from 'connected-react-router';
+
+import {
+    ZOOM_TO_POINT,
+    clickOnMap,
+    CHANGE_MAP_VIEW,
+    UNREGISTER_EVENT_LISTENER,
+    REGISTER_EVENT_LISTENER
+} from '../../actions/map';
+
+import {
+    FEATURE_INFO_CLICK,
+    UPDATE_CENTER_TO_MARKER,
+    PURGE_MAPINFO_RESULTS,
+    NEW_MAPINFO_REQUEST,
+    LOAD_FEATURE_INFO,
+    NO_QUERYABLE_LAYERS,
+    ERROR_FEATURE_INFO,
+    EXCEPTIONS_FEATURE_INFO,
+    SHOW_MAPINFO_MARKER,
+    HIDE_MAPINFO_MARKER,
+    GET_VECTOR_INFO,
+    SET_CURRENT_EDIT_FEATURE_QUERY,
+    CLEAR_WARNING,
+    loadFeatureInfo,
+    featureInfoClick,
+    closeIdentify,
+    toggleHighlightFeature,
+    editLayerFeatures,
+    updateFeatureInfoClickPoint,
+    purgeMapInfoResults,
+    clearWarning
+} from '../../actions/mapInfo';
+
+import { REMOVE_MAP_POPUP } from '../../actions/mapPopups';
+import { TEXT_SEARCH_CANCEL_ITEM } from '../../actions/search';
+import {
+    getFeatureInfoOnFeatureInfoClick,
+    zoomToVisibleAreaEpic,
+    onMapClick,
+    closeFeatureAndAnnotationEditing,
+    handleMapInfoMarker,
+    featureInfoClickOnHighligh,
+    closeFeatureInfoOnCatalogOpenEpic,
+    identifyEditLayerFeaturesEpic,
+    hideMarkerOnIdentifyCloseOrClearWarning,
+    onUpdateFeatureInfoClickPoint,
+    removePopupOnLocationChangeEpic,
+    removePopupOnUnregister,
+    setMapTriggerEpic
+} from '../identify';
+import { CLOSE_ANNOTATIONS } from '../../actions/annotations';
+import { testEpic, TEST_TIMEOUT, addTimeoutEpic } from './epicTestUtils';
+
+import {
+    registerHook,
+    GET_COORDINATES_FROM_PIXEL_HOOK,
+    GET_PIXEL_FROM_COORDINATES_HOOK
+} from '../../utils/MapUtils';
+
+import { setControlProperties } from '../../actions/controls';
+import { BROWSE_DATA } from '../../actions/layers';
+import { configureMap } from '../../actions/config';
+import { changeMapType } from './../../actions/maptype';
 
 const TEST_MAP_STATE = {
     present: {
@@ -58,6 +114,38 @@ describe('identify Epics', () => {
             done();
         }, state);
     });
+
+    it('getFeatureInfoOnFeatureInfoClick, no queryable layers if feature info format is HIDDEN', (done) => {
+        // remove previous hook
+        registerHook('RESOLUTION_HOOK', undefined);
+        const state = {
+            map: TEST_MAP_STATE,
+            mapInfo: {
+                clickPoint: { latlng: { lat: 36.95, lng: -79.84 } }
+            },
+            layers: {
+                flat: [{
+                    id: "TEST",
+                    name: "TEST",
+                    "title": "TITLE",
+                    type: "wms",
+                    visibility: true,
+                    url: 'base/web/client/test-resources/featureInfo-response.json',
+                    featureInfo: {
+                        format: "HIDDEN"
+                    }
+                }],
+                selected: ['TEST']
+            }
+        };
+        const sentActions = [featureInfoClick({ latlng: { lat: 36.95, lng: -79.84 } })];
+        testEpic(getFeatureInfoOnFeatureInfoClick, 2, sentActions, ([a0, a1]) => {
+            expect(a0.type).toBe(PURGE_MAPINFO_RESULTS);
+            expect(a1.type).toBe(NO_QUERYABLE_LAYERS);
+            done();
+        }, state);
+    });
+
     it('getFeatureInfoOnFeatureInfoClick WMS', (done) => {
         // remove previous hook
         registerHook('RESOLUTION_HOOK', undefined);
@@ -108,6 +196,54 @@ describe('identify Epics', () => {
                 expect(a3.layerMetadata.title).toBe(state.layers.flat[a3.requestParams.id === "TEST" ? 0 : 1].title);
                 expect(a4).toExist();
                 expect(a4.layerMetadata.title).toBe(state.layers.flat[a4.requestParams.id === "TEST" ? 0 : 1].title);
+                done();
+            } catch (ex) {
+                done(ex);
+            }
+        }, state);
+    });
+    it('getFeatureInfoOnFeatureInfoClick WMS with maxItems for configuration set', (done) => {
+        // remove previous hook
+        registerHook('RESOLUTION_HOOK', undefined);
+        const state = {
+            map: TEST_MAP_STATE,
+            mapInfo: {
+                clickPoint: { latlng: { lat: 36.95, lng: -79.84 } },
+                disabledAlwaysOn: false,
+                configuration: {
+                    showEmptyMessageGFI: false,
+                    infoFormat: "text/plain",
+                    maxItems: 50
+                }
+            },
+            layers: {
+                flat: [{
+                    id: "TEST",
+                    title: "TITLE",
+                    type: "wms",
+                    visibility: true,
+                    url: 'base/web/client/test-resources/featureInfo-response.json'
+                },
+                {
+                    id: "TEST2",
+                    name: "TEST2",
+                    title: "TITLE2",
+                    type: "wms",
+                    visibility: true,
+                    url: 'base/web/client/test-resources/featureInfo-response.json'
+                }]
+            }
+        };
+        const sentActions = [featureInfoClick({ latlng: { lat: 36.95, lng: -79.84 } })];
+        const NUM_ACTIONS = 5;
+        testEpic(getFeatureInfoOnFeatureInfoClick, NUM_ACTIONS, sentActions, (actions) => {
+            try {
+                const [a0, a1, a2, a3, a4] = actions;
+                expect(a0).toBeTruthy();
+                expect(a1).toBeTruthy();
+                expect(a2).toBeTruthy();
+                expect(a3.requestParams.feature_count).toBe(50);
+                expect(a4).toBeTruthy();
                 done();
             } catch (ex) {
                 done(ex);
@@ -343,10 +479,10 @@ describe('identify Epics', () => {
                 expect(a0).toExist();
                 expect(a0.type).toBe(PURGE_MAPINFO_RESULTS);
                 expect(a1).toExist();
-                expect(a1.type).toBe(NEW_MAPINFO_REQUEST);
-                expect(a1.reqId).toExist();
-                expect(a1.request).toExist();
-                expect(a2.type).toBe(GET_VECTOR_INFO);
+                expect(a1.type).toBe(GET_VECTOR_INFO);
+                expect(a2.type).toBe(NEW_MAPINFO_REQUEST);
+                expect(a2.reqId).toExist();
+                expect(a2.request).toExist();
                 expect(a3).toExist();
                 expect(a3.type).toBe(LOAD_FEATURE_INFO);
                 done();
@@ -541,17 +677,30 @@ describe('identify Epics', () => {
     });
 
     it('onMapClick triggers featureinfo when selected', done => {
-        testEpic(onMapClick, 1, [clickOnMap()], ([action]) => {
-            expect(action.type === FEATURE_INFO_CLICK);
+        registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
+        registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
+        const NUM_ACTIONS = 2;
+        testEpic(onMapClick, NUM_ACTIONS, [clickOnMap({latlng: {lat: 8, lng: 8}})], (actions) => {
+            expect(actions.length).toBe(2);
+            expect(actions[0].type).toEqual(FEATURE_INFO_CLICK);
+            expect(actions[1].type).toEqual(TEXT_SEARCH_CANCEL_ITEM);
             done();
         }, {
             mapInfo: {
                 enabled: true,
                 disableAlwaysOn: false
+            },
+            map: {
+                present: {
+                    projection: 'EPSG:3857'
+                }
             }
         });
     });
+
     it('onMapClick do not trigger when mapinfo is not enabled', done => {
+        registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
+        registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
         testEpic(addTimeoutEpic(onMapClick, 10), 1, [clickOnMap()], ([action]) => {
             if (action.type === TEST_TIMEOUT) {
                 done();
@@ -583,7 +732,7 @@ describe('identify Epics', () => {
         });
     });
     it('onMapClick trigger when mapinfo is not enabled', done => {
-        testEpic(onMapClick, 1, [clickOnMap()], ([action]) => {
+        testEpic(onMapClick, 1, [clickOnMap({latlng: {lat: 8, lng: 8}})], ([action]) => {
             if (action.type === FEATURE_INFO_CLICK) {
                 done();
             }
@@ -597,6 +746,59 @@ describe('identify Epics', () => {
                     plugins: {
                         desktop: [{name: "Identify"}]
                     }
+                }
+            },
+            map: {
+                present: {
+                    projection: 'EPSG:3857'
+                }
+            }
+        });
+
+    });
+    it('onMapClick generates geometricFilter', done => {
+        const cleanUp = () => {
+            registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
+            registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
+        };
+        registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, ([x, y]) => {
+            expect(x).toBe(0);
+            expect(y).toBe(5); // 5 is the radius
+            return [0, 5];
+
+        });
+        registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, () => {
+            return [0, 0];
+        });
+
+        testEpic(onMapClick, 1, [clickOnMap({ latlng: { lat: 0, lng: 0 } })], ([action]) => {
+            if (action.type === FEATURE_INFO_CLICK) {
+                expect(action.point).toBeTruthy();
+                expect(action.point.geometricFilter).toBeTruthy();
+                const geometry = action.point.geometricFilter.value.geometry;
+                // due to mock data coordinates of the extent should be ,ore or less -5 + 5, not check the coordinates of the circle to avoid float issues with test
+                expect(Math.round(geometry.extent[0])).toEqual(-5);
+                expect(Math.round(geometry.extent[1])).toEqual(-5);
+                expect(Math.round(geometry.extent[2])).toEqual(5);
+                expect(Math.round(geometry.extent[3])).toEqual(5);
+                cleanUp();
+                done();
+            }
+        }, {
+            mapInfo: {
+                enabled: true,
+                disableAlwaysOn: false
+            },
+            context: {
+                currentContext: {
+                    plugins: {
+                        desktop: [{ name: "Identify" }]
+                    }
+                }
+            },
+            map: {
+                present: {
+                    projection: 'EPSG:3857'
                 }
             }
         });
@@ -710,18 +912,202 @@ describe('identify Epics', () => {
         const startActions = [editLayerFeatures({id: 'layer'})];
         testEpic(identifyEditLayerFeaturesEpic, 2, startActions, actions => {
             expect(actions.length).toBe(2);
-            expect(actions[0].type).toBe(SET_EDIT_FEATURE_QUERY);
-            expect(actions[0].query).toExist();
+            expect(actions[0].type).toBe(SET_CURRENT_EDIT_FEATURE_QUERY);
+            expect(actions[0].query).toEqual({type: 'geometry'});
             expect(actions[1].type).toBe(BROWSE_DATA);
         }, {
             mapInfo: {
                 clickPoint: {
-                    latlng: {
-                        lat: 1,
-                        lng: 1
+                    geometricFilter: {
+                        type: 'geometry'
                     }
+                }
+            },
+            map: {
+                present: {
+                    projection: 'EPSG:3857'
                 }
             }
         }, done);
+    });
+
+    it('hideMarkerOnIdentifyCloseOrClearWarning on closeIdentify', (done) => {
+        const startActions = [closeIdentify()];
+        testEpic(hideMarkerOnIdentifyCloseOrClearWarning, 1, startActions, actions => {
+            expect(actions.length).toBe(1);
+            expect(actions[0].type).toBe(HIDE_MAPINFO_MARKER);
+        }, {}, done);
+    });
+    it('hideMarkerOnIdentifyCloseOrClearWarning on clearWarning', (done) => {
+        const startActions = [clearWarning()];
+        testEpic(hideMarkerOnIdentifyCloseOrClearWarning, 1, startActions, actions => {
+            expect(actions.length).toBe(1);
+            expect(actions[0].type).toBe(HIDE_MAPINFO_MARKER);
+        }, {}, done);
+    });
+    it('onUpdateFeatureInfoClickPoint', done => {
+        const cleanUp = () => {
+            registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, undefined);
+            registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, undefined);
+        };
+        registerHook(GET_COORDINATES_FROM_PIXEL_HOOK, ([x, y]) => {
+            expect(x).toBe(0);
+            expect(y).toBe(5);
+            return [0, 5];
+
+        });
+        registerHook(GET_PIXEL_FROM_COORDINATES_HOOK, ([x, y]) => {
+            expect(x).toBe(0);
+            expect(y).toBe(0);
+            return [0, 0];
+        });
+        const LAYER_NAME = "This is one sample additional argument of featureInfoClick that have to be replicated";
+        const PROJECTION = 'EPSG:4326';
+        testEpic(onUpdateFeatureInfoClickPoint, 1, [
+            featureInfoClick({ latlng: { lat: 36.95, lng: -79.84 }}, LAYER_NAME),
+            updateFeatureInfoClickPoint({latlng: {lat: 0, lng: 0}})
+        ], ([{point, layer}]) => {
+            expect(point.latlng.lat).toEqual(0);
+            expect(point.latlng.lng).toEqual(0);
+            expect(point.geometricFilter.type).toEqual('geometry');
+            expect(point.geometricFilter.value.operation).toEqual("INTERSECTS");
+            expect(point.geometricFilter.value.geometry.center).toEqual([0, 0]); // some checks to verify that a circle is created
+            expect(point.geometricFilter.value.geometry.projection).toEqual(PROJECTION); // some checks to verify that a circle is created
+            expect(point.geometricFilter.value.geometry.extent).toEqual([-5, -5, 5, 5]); // not check the coordinate to avoid issue with float, but the extent should be this accordingly with the mock data
+            expect(layer).toBe(LAYER_NAME);
+            cleanUp();
+            done();
+        }, {
+            map: {
+                present: {
+                    projection: PROJECTION
+                }
+            }
+        });
+    });
+    describe("removePopupOnLocationChangeEpic", () => {
+        it('removePopupOnLocationChangeEpic with purgeMapInfoResults as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(addTimeoutEpic(removePopupOnLocationChangeEpic, 50), NUM_ACTIONS, purgeMapInfoResults(), (actions) => {
+                expect(actions.length).toBe(1);
+                const [{type}] = actions;
+                expect(type).toBe(TEST_TIMEOUT);
+                done();
+            }, {});
+        });
+        it('checks that all works with some popups with purgeMapInfoResults as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(removePopupOnLocationChangeEpic, NUM_ACTIONS, purgeMapInfoResults(), (actions) => {
+                expect(actions.length).toBe(1);
+                const [{id, type}] = actions;
+                expect(type).toBe(REMOVE_MAP_POPUP);
+                expect(id).toBe("id");
+                done();
+            }, {
+                mapPopups: {
+                    popups: [{id: "id"}]
+                }
+            });
+        });
+        it('removePopupOnLocationChangeEpic with LOCATION_CHANGE as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(addTimeoutEpic(removePopupOnLocationChangeEpic, 50), NUM_ACTIONS, {type: LOCATION_CHANGE}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{type}] = actions;
+                expect(type).toBe(TEST_TIMEOUT);
+                done();
+            }, {});
+        });
+        it('checks that all works with some popups with LOCATION_CHANGE as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(removePopupOnLocationChangeEpic, NUM_ACTIONS, {type: LOCATION_CHANGE}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{id, type}] = actions;
+                expect(type).toBe(REMOVE_MAP_POPUP);
+                expect(id).toBe("id");
+                done();
+            }, {
+                mapPopups: {
+                    popups: [{id: "id"}]
+                }
+            });
+        });
+        it('removePopupOnLocationChangeEpic with CLEAR_WARNING as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(addTimeoutEpic(removePopupOnLocationChangeEpic, 50), NUM_ACTIONS, {type: CLEAR_WARNING}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{type}] = actions;
+                expect(type).toBe(TEST_TIMEOUT);
+                done();
+            }, {});
+        });
+        it('checks that all works with some popups with CLEAR_WARNING as trigger', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(removePopupOnLocationChangeEpic, NUM_ACTIONS, {type: CLEAR_WARNING}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{id, type}] = actions;
+                expect(type).toBe(REMOVE_MAP_POPUP);
+                expect(id).toBe("id");
+                done();
+            }, {
+                mapPopups: {
+                    popups: [{id: "id"}]
+                }
+            });
+        });
+    });
+    describe("removePopupOnUnregister", () => {
+        it('checks that all works with no popups', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(addTimeoutEpic(removePopupOnUnregister, 50), NUM_ACTIONS, {type: UNREGISTER_EVENT_LISTENER}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{type}] = actions;
+                expect(type).toBe(TEST_TIMEOUT);
+                done();
+            }, {});
+        });
+        it('checks that all works with some popups', done => {
+            const NUM_ACTIONS = 1;
+            testEpic(removePopupOnUnregister, NUM_ACTIONS, {type: UNREGISTER_EVENT_LISTENER}, (actions) => {
+                expect(actions.length).toBe(1);
+                const [{id, type}] = actions;
+                expect(type).toBe(REMOVE_MAP_POPUP);
+                expect(id).toBe("id");
+                done();
+            }, {
+                mapPopups: {
+                    popups: [{id: "id"}]
+                }
+            });
+        });
+    });
+    describe('setMapTriggerEpic', () => {
+        it('should register event if hover is trigger in mapInfo', (done) => {
+            const epicResponse = actions => {
+                expect(actions[0].type).toBe(REGISTER_EVENT_LISTENER);
+                done();
+            };
+            testEpic(setMapTriggerEpic, 1, configureMap(), epicResponse, {mapInfo: {configuration: {trigger: 'hover'}}});
+        });
+        it('should unregister event if no mapInfo or no trigger is present in mapInfo', (done) => {
+            const epicResponse = actions => {
+                expect(actions[0].type).toBe(UNREGISTER_EVENT_LISTENER);
+                done();
+            };
+            testEpic(setMapTriggerEpic, 1, configureMap(), epicResponse, {});
+        });
+        it('should unregister identifyFloatingTool event if mapType is changed to cesium', (done) => {
+            const epicResponse = actions => {
+                expect(actions[0].type).toBe(UNREGISTER_EVENT_LISTENER);
+                done();
+            };
+            testEpic(setMapTriggerEpic, 1, changeMapType("cesium"), epicResponse, {
+                mapInfo: {
+                    configuration: {
+                        trigger: "click"
+                    }
+                }
+            });
+        });
     });
 });

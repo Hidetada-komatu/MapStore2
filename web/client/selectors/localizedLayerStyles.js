@@ -6,7 +6,10 @@
 * LICENSE file in the root directory of this source tree.
 */
 
-const {has, get} = require('lodash');
+import { has, get, find } from 'lodash';
+
+import { createSelector } from 'reselect';
+import { currentLocaleLanguageSelector } from './locale';
 
 /**
  * selects localizedLayerStyles state
@@ -21,7 +24,19 @@ const {has, get} = require('lodash');
  * @param  {object} state the state
  * @return {boolean} true if the localizedLayerStyles property is defined
  */
-const isLocalizedLayerStylesEnabledSelector = (state) => has(state, 'localConfig.localizedLayerStyles');
+export const isLocalizedLayerStylesEnabledSelector = (state) => has(state, 'localConfig.localizedLayerStyles');
+
+/**
+ * selects localizedLayerStyles value from state
+ * @memberof selectors.localizedLayerStyles
+ * @param  {object} state the state
+ * @return {boolean} boolean if the localizedLayerStyles property is defined
+ */
+export const isLocalizedLayerStylesEnabledDashboardsSelector = (state) => {
+    const dashboardPlugins = get(state, "localConfig.plugins.dashboard", []);
+    const dashboardEditorPlugin = find(dashboardPlugins, item => item.name === 'DashboardEditor') || {};
+    return get(dashboardEditorPlugin, "cfg.catalog.localizedLayerStyles", false);
+};
 
 /**
  * selects localizedLayerStyles name from state
@@ -29,9 +44,26 @@ const isLocalizedLayerStylesEnabledSelector = (state) => has(state, 'localConfig
  * @param  {object} state the state
  * @return {string} the localizedLayerStyles param name
  */
-const localizedLayerStylesNameSelector = (state) => get(state, 'localConfig.localizedLayerStyles.name', 'mapstore_language');
+export const localizedLayerStylesNameSelector = (state) => get(state, 'localConfig.localizedLayerStyles.name', 'mapstore_language');
 
-module.exports = {
+/**
+ * generates localizedLayerStyles env object
+ * @memberof selectors.localizedLayerStyles
+ * @param  {object} state the state
+ * @return {object} object that represents ENV param
+ */
+export const localizedLayerStylesEnvSelector = createSelector(
     isLocalizedLayerStylesEnabledSelector,
-    localizedLayerStylesNameSelector
-};
+    localizedLayerStylesNameSelector,
+    currentLocaleLanguageSelector,
+    (isLocalizedLayerStylesEnabled, localizedLayerStylesName, currentLocaleLanguage) => {
+        const env = [];
+        if (isLocalizedLayerStylesEnabled) {
+            env.push({
+                name: localizedLayerStylesName,
+                value: currentLocaleLanguage
+            });
+        }
+        return env;
+    }
+);

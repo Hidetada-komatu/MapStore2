@@ -6,8 +6,35 @@
 * LICENSE file in the root directory of this source tree.
 */
 
-const expect = require('expect');
-const {localizedLayerStylesNameSelector} = require('../localizedLayerStyles');
+import expect from 'expect';
+
+import {
+    isLocalizedLayerStylesEnabledSelector,
+    isLocalizedLayerStylesEnabledDashboardsSelector,
+    localizedLayerStylesNameSelector,
+    localizedLayerStylesEnvSelector
+} from '../localizedLayerStyles';
+
+import { currentLocaleLanguageSelector } from '../locale';
+
+const givenName = 'example';
+const givenState = {
+    localConfig: {
+        localizedLayerStyles: {
+            name: givenName
+        },
+        plugins: {
+            dashboard: [{
+                name: "DashboardEditor",
+                cfg: {
+                    catalog: {
+                        localizedLayerStyles: true
+                    }
+                }
+            }]
+        }
+    }
+};
 
 describe('Test localizedLayerStyles', () => {
     it('test localizedLayerStylesNameSelector default', () => {
@@ -17,9 +44,44 @@ describe('Test localizedLayerStyles', () => {
     });
 
     it('test localizedLayerStylesNameSelector', () => {
-        const name = 'example';
-        const localizedLayerStyles = localizedLayerStylesNameSelector({localConfig: {localizedLayerStyles: {name}}});
+        const localizedLayerStyles = localizedLayerStylesNameSelector(givenState);
 
-        expect(localizedLayerStyles).toBe(name);
+        expect(localizedLayerStyles).toBe(givenName);
+    });
+
+    it('test isLocalizedLayerStylesEnabledSelector', () => {
+        let isLocalizedLayerStylesEnabled;
+
+        isLocalizedLayerStylesEnabled = isLocalizedLayerStylesEnabledSelector({});
+        expect(isLocalizedLayerStylesEnabled).toBe(false);
+
+        isLocalizedLayerStylesEnabled = isLocalizedLayerStylesEnabledSelector(givenState);
+        expect(isLocalizedLayerStylesEnabled).toBe(true);
+    });
+
+    it('test isLocalizedLayerStylesEnabledDashboardsSelector', () => {
+        let isLocalizedLayerStylesEnabled;
+
+        isLocalizedLayerStylesEnabled = isLocalizedLayerStylesEnabledDashboardsSelector({});
+        expect(isLocalizedLayerStylesEnabled).toBe(false);
+
+        isLocalizedLayerStylesEnabled = isLocalizedLayerStylesEnabledDashboardsSelector(givenState);
+        expect(isLocalizedLayerStylesEnabled).toBe(true);
+    });
+
+    it('test localizedLayerStylesEnvSelector default', () => {
+        const env = localizedLayerStylesEnvSelector({});
+
+        expect(env).toEqual([]);
+    });
+
+    it('test localizedLayerStylesEnvSelector', () => {
+        const env = localizedLayerStylesEnvSelector(givenState);
+        const language = currentLocaleLanguageSelector(givenState);
+
+        expect(env).toEqual([{
+            name: givenName,
+            value: language
+        }]);
     });
 });

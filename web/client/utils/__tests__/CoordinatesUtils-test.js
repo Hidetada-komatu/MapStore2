@@ -5,9 +5,11 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-var expect = require('expect');
-var CoordinatesUtils = require('../CoordinatesUtils');
-var Proj4js = require('proj4').default;
+import expect from 'expect';
+import { isNearlyEqual } from '../MapUtils';
+
+import CoordinatesUtils from '../CoordinatesUtils';
+import Proj4js from 'proj4';
 
 describe('CoordinatesUtils', () => {
     afterEach((done) => {
@@ -714,5 +716,82 @@ describe('CoordinatesUtils', () => {
     it("transformArcsToLine every 2 points", () => {
         const res = CoordinatesUtils.transformArcsToLine([[1, 1], [2, 2], [3, 3], [4, 4]], 2);
         expect(res).toEqual([[1, 1], [3, 3], [4, 4]]);
+    });
+    it('makeBboxFromOWS valid lc and uc', () => {
+        const lc = [2, 2];
+        const uc = [4, 4];
+        expect(CoordinatesUtils.makeBboxFromOWS(lc, uc)).toEqual([2, 2, 4, 4]);
+    });
+    it('makeBboxFromOWS lower corner is upper corner and vice versa', () => {
+        const lc = [4, 4];
+        const uc = [2, 2];
+        expect(CoordinatesUtils.makeBboxFromOWS(lc, uc)).toEqual([2, 2, 4, 4]);
+    });
+    it('makeBboxFromOWS lower right and upper left', () => {
+        const lc = [4, 2];
+        const uc = [2, 4];
+        expect(CoordinatesUtils.makeBboxFromOWS(lc, uc)).toEqual([2, 2, 4, 4]);
+    });
+    it('extractCrsFromURN #1', () => {
+        const urn = 'urn:ogc:def:crs:EPSG:6.6:4326';
+        expect(CoordinatesUtils.extractCrsFromURN(urn)).toBe('EPSG:4326');
+    });
+    it('extractCrsFromURN #2', () => {
+        const urn = 'urn:ogc:def:crs:EPSG::3857';
+        expect(CoordinatesUtils.extractCrsFromURN(urn)).toBe('EPSG:3857');
+    });
+    it('extractCrsFromURN #3', () => {
+        const urn = 'urn:ogc:def:crs:::RGF Lambert93';
+        expect(CoordinatesUtils.extractCrsFromURN(urn)).toBe('RGF Lambert93');
+    });
+    it('extractCrsFromURN invalid URN', () => {
+        const urn = 'urn:lex:eu:council:directive:2010-03-09';
+        expect(CoordinatesUtils.extractCrsFromURN(urn)).toBe(null);
+    });
+    it('makeNumericEPSG with valid EPSG', () => {
+        const epsg = 'EPSG:3857';
+        expect(CoordinatesUtils.makeNumericEPSG(epsg)).toBe('EPSG:3857');
+    });
+    it('makeNumericEPSG with WGS84', () => {
+        const epsg = 'EPSG:WGS84';
+        expect(CoordinatesUtils.makeNumericEPSG(epsg)).toBe('EPSG:4326');
+    });
+    it('makeNumericEPSG with OGC:CRS84', () => {
+        const epsg = 'EPSG:OGC:CRS84';
+        expect(CoordinatesUtils.makeNumericEPSG(epsg)).toBe('EPSG:4326');
+    });
+    it('makeNumericEPSG with invalid EPSG', () => {
+        const epsg = 'EPSG:84';
+        expect(CoordinatesUtils.makeNumericEPSG(epsg)).toBe(null);
+    });
+    it('creates a polygon with getPolygonFromCircle defaults', () => {
+        let polygon = CoordinatesUtils.getPolygonFromCircle();
+        expect(polygon).toBe(null);
+        polygon = CoordinatesUtils.getPolygonFromCircle([40, 15]);
+        expect(polygon).toBe(null);
+        polygon = CoordinatesUtils.getPolygonFromCircle(null, 6.13);
+        expect(polygon).toBe(null);
+        polygon = CoordinatesUtils.getPolygonFromCircle([40, 15], 6.13);
+        expect(polygon).toBeTruthy();
+    });
+    it('creates a polygon with getPolygonFromCircle, radius in degress', () => {
+        let polygon = CoordinatesUtils.getPolygonFromCircle([40, 15], 6.13, "degrees", 50);
+        expect(polygon.geometry.coordinates[0].length).toBe(50 + 1);
+        expect(polygon.geometry.coordinates[0][0][0]).toBe(40);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][0][1], 21.137162260837176)).toBe(true);
+        expect(polygon.geometry.coordinates[0][50][0]).toBe(40);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][50][1], 21.137162260837176)).toBe(true);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][20][0], 36.34143838801184)).toBe(true);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][20][1], 10.00834658343667)).toBe(true);
+    });
+    it('creates a polygon with getPolygonFromCircle, radius in meters', () => {
+        let polygon = CoordinatesUtils.getPolygonFromCircle([40, 15], 6000, "meters", 50);
+        expect(polygon.geometry.coordinates[0].length).toBe(50 + 1);
+        expect(polygon.geometry.coordinates[0][0][0]).toBe(40);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][0][1], 15.053959221823476)).toBe(true);
+        expect(polygon.geometry.coordinates[0][50][0]).toBe(40);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][50][1], 15.053959221823476)).toBe(true);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][20][0], 39.96717142640955)).toBe(true);
+        expect(isNearlyEqual(polygon.geometry.coordinates[0][20][1], 14.956343723081114)).toBe(true);
     });
 });

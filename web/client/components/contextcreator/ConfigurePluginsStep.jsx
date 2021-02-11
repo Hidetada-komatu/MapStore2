@@ -9,21 +9,23 @@
 import React from 'react';
 import {compose, withState, lifecycle, getContext} from 'recompose';
 import {get} from 'lodash';
-import {Glyphicon, Button, Tooltip, OverlayTrigger, Alert} from 'react-bootstrap';
+import {Glyphicon, Tooltip, OverlayTrigger, Alert} from 'react-bootstrap';
 import {Controlled as Codemirror} from 'react-codemirror2';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/mode/javascript/javascript';
 
+import Button from '../misc/Button';
 import Transfer from '../misc/transfer/Transfer';
 import ResizableModal from '../misc/ResizableModal';
 import ToolbarButton from '../misc/toolbar/ToolbarButton';
 import Message from '../I18N/Message';
 import ConfigureMapTemplates from './ConfigureMapTemplates';
+import tutorialEnhancer from './enhancers/tutorialEnhancer';
 
 import Dropzone from 'react-dropzone';
 import Spinner from "react-spinkit";
 
-import LocaleUtils from '../../utils/LocaleUtils';
+import {getMessageById} from '../../utils/LocaleUtils';
 import PropTypes from 'prop-types';
 import ConfirmModal from '../resources/modals/ConfirmModal';
 
@@ -58,12 +60,12 @@ const getEnabledTools = (plugin, isMandatory, editedPlugin, documentationBaseURL
         active: plugin.name === editedPlugin,
         onClick: () => onEditPlugin(plugin.name === editedPlugin ? undefined : plugin.name)
     }, {
-        visible: !!documentationBaseURL,
+        visible: !!(plugin.docUrl || documentationBaseURL),
         glyph: 'question-sign',
         tooltipId: 'contextCreator.configurePlugins.tooltips.pluginDocumentation',
         Element: (props) =>
             <a target="_blank" rel="noopener noreferrer"
-                href={documentationBaseURL && documentationBaseURL + '#plugins.' + (plugin.docName || plugin.name)}>
+                href={plugin.docUrl || documentationBaseURL && documentationBaseURL + '#plugins.' + (plugin.docName || plugin.name)}>
                 <ToolbarButton {...props}/>
             </a>
     }, {
@@ -90,7 +92,8 @@ const getAvailableTools = (plugin, onShowDialog) => {
  * @param {object} cfgError object describing current cfg editing error
  * @param {function} setEditor editor instance setter
  * @param {string} documentationBaseURL base url for plugin documentation
- * @param {boolean} showMapTemplatesConfig
+ * @param {boolean} showDescriptionTooltip show a tooltip when hovering over plugin's description
+ * @param {number} descriptionTooltipDelay description tooltip show delay
  * @param {function} onEditPlugin edit plugin configuration callback
  * @param {function} onEnablePlugins enable plugins callback
  * @param {function} onDisablePlugins disable plugins callback
@@ -102,8 +105,8 @@ const getAvailableTools = (plugin, onShowDialog) => {
  * @param {boolean} processChildren if true this function will recursively convert the children
  * @param {boolean} parentIsEnabled true if 'enabled' property of parent plugin object is true
  */
-const pluginsToItems = (editedPlugin, editedCfg, cfgError, setEditor, documentationBaseURL, onEditPlugin,
-    onEnablePlugins, onDisablePlugins, onUpdateCfg, onShowDialog, changePluginsKey, isRoot, plugins = [],
+const pluginsToItems = (editedPlugin, editedCfg, cfgError, setEditor, documentationBaseURL, showDescriptionTooltip, descriptionTooltipDelay,
+    onEditPlugin, onEnablePlugins, onDisablePlugins, onUpdateCfg, onShowDialog, changePluginsKey, isRoot, plugins = [],
     processChildren, parentIsEnabled) =>
     plugins.filter(plugin => !plugin.hidden).map(plugin => {
         const enableTools = (isRoot || parentIsEnabled);
@@ -113,6 +116,8 @@ const pluginsToItems = (editedPlugin, editedCfg, cfgError, setEditor, documentat
             title: plugin.title || plugin.label || plugin.name,
             cardSize: 'sm',
             description: plugin.description || 'plugin name: ' + plugin.name,
+            showDescriptionTooltip,
+            descriptionTooltipDelay,
             mandatory: isMandatory,
             className: !isRoot && parentIsEnabled && !plugin.enabled ? 'plugin-card-disabled' : '',
             tools: enableTools ? (plugin.enabled ? getEnabledTools(plugin, isMandatory, editedPlugin, documentationBaseURL, onEditPlugin,
@@ -159,9 +164,9 @@ const pluginsToItems = (editedPlugin, editedCfg, cfgError, setEditor, documentat
                     {plugin.glyph ? <Glyphicon key="icon" glyph={plugin.glyph} /> : <Glyphicon key="icon" glyph="plug" />}
                 </React.Fragment>),
             children: processChildren &&
-                pluginsToItems(editedPlugin, editedCfg, cfgError, setEditor, documentationBaseURL, onEditPlugin,
-                    onEnablePlugins, onDisablePlugins, onUpdateCfg, onShowDialog, changePluginsKey, false, plugin.children,
-                    true, plugin.enabled) || []
+                pluginsToItems(editedPlugin, editedCfg, cfgError, setEditor, documentationBaseURL, showDescriptionTooltip,
+                    descriptionTooltipDelay, onEditPlugin, onEnablePlugins, onDisablePlugins, onUpdateCfg, onShowDialog,
+                    changePluginsKey, false, plugin.children, true, plugin.enabled) || []
         };
     });
 
@@ -237,6 +242,7 @@ const renderUploadModal = ({
 };
 
 const configurePluginsStep = ({
+    user,
     loading,
     loadFlags,
     allPlugins = [],
@@ -251,6 +257,8 @@ const configurePluginsStep = ({
     availablePluginsFilterPlaceholder = "contextCreator.configurePlugins.pluginsFilterPlaceholder",
     enabledPluginsFilterPlaceholder = "contextCreator.configurePlugins.pluginsFilterPlaceholder",
     documentationBaseURL,
+    showDescriptionTooltip = true,
+    descriptionTooltipDelay = 600,
     uploadEnabled = false,
     pluginsToUpload = [],
     uploading = [],
@@ -261,6 +269,7 @@ const configurePluginsStep = ({
     enabledTemplatesFilterText,
     availableTemplatesFilterPlaceholder,
     enabledTemplatesFilterPlaceholder,
+    disablePluginSort = false,
     onFilterAvailablePlugins = () => {},
     onFilterEnabledPlugins = () => {},
     onEditPlugin = () => {},
@@ -288,16 +297,18 @@ const configurePluginsStep = ({
     messages = {}
 }) => {
     const uploadErrors = {
+        [ERROR.WRONG_FORMAT]: "contextCreator.configurePlugins.uploadWrongFileFormatError",
         [ERROR.MISSING_INDEX]: "contextCreator.configurePlugins.uploadMissingIndexError",
         [ERROR.MALFORMED_INDEX]: "contextCreator.configurePlugins.uploadParseError",
         [ERROR.MISSING_PLUGIN]: "contextCreator.configurePlugins.uploadMissingPluginError",
         [ERROR.MISSING_BUNDLE]: "contextCreator.configurePlugins.uploadMissingBundleError",
-        [ERROR.TOO_MANY_BUNDLES]: "contextCreator.configurePlugins.uploadTooManyBundlesError"
+        [ERROR.TOO_MANY_BUNDLES]: "contextCreator.configurePlugins.uploadTooManyBundlesError",
+        [ERROR.ALREADY_INSTALLED]: "contextCreator.configurePlugins.uploadAlreadyInstalledError"
     };
     const checkUpload = (files) => {
         Promise.all(files.map(file => {
-            return checkZipBundle(file).catch(e => {
-                throw new Error(LocaleUtils.getMessageById(messages, uploadErrors[e]));
+            return checkZipBundle(file, allPlugins.map(p => p.name)).catch(e => {
+                throw new Error(getMessageById(messages, uploadErrors[e]));
             });
         })).then((namedFiles) => {
             onAddUpload(namedFiles);
@@ -314,6 +325,7 @@ const configurePluginsStep = ({
     const enabledPlugins = allPlugins.filter(plugin => plugin.enabled);
 
     const pluginsToItemsFunc = pluginsToItems.bind(null, editedPlugin, editedCfg, cfgError, setEditor, documentationBaseURL,
+        showDescriptionTooltip, descriptionTooltipDelay,
         onEditPlugin, onEnablePlugins, onDisablePlugins, onUpdateCfg, onShowDialog, changePluginsKey, true);
 
     const selectedItems = pluginsToItemsFunc(selectedPlugins, false);
@@ -364,6 +376,10 @@ const configurePluginsStep = ({
                     'left'
                 }
                 sortStrategy={items => {
+                    if (disablePluginSort) {
+                        return items;
+                    }
+
                     const recursiveSort = curItems => curItems && curItems.map(item => ({...item, children: recursiveSort(item.children)}))
                         .sort((x, y) => x.title < y.title ? -1 : 1);
                     return recursiveSort(items);
@@ -387,6 +403,7 @@ const configurePluginsStep = ({
                 size="lg"
                 onClose={() => onShowDialog('mapTemplatesConfig', false)}>
                 <ConfigureMapTemplates
+                    user={user}
                     loading={loading}
                     loadFlags={loadFlags}
                     mapTemplates={mapTemplates}
@@ -445,5 +462,6 @@ export default compose(
                 }
             }
         }
-    })
+    }),
+    tutorialEnhancer('configureplugins-initial')
 )(configurePluginsStep);

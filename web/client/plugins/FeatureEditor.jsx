@@ -16,7 +16,7 @@ import ReactDock from 'react-dock';
 import { createPlugin } from '../utils/PluginsUtils';
 
 import * as epics from '../epics/featuregrid';
-import * as featuregrid from '../reducers/featuregrid';
+import featuregrid from '../reducers/featuregrid';
 
 import Grid from '../components/data/featuregrid/FeatureGrid';
 import {paginationInfo, describeSelector, wfsURLSelector, typeNameSelector} from '../selectors/query';
@@ -45,7 +45,34 @@ const Dock = connect(createSelector(
   * @name FeatureEditor
   * @memberof plugins
   * @class
-  * @prop {object} cfg.customEditorsOptions Set of options used to connect the custom editors to the featuregrid
+  * @prop {object} cfg.customEditorsOptions Set of options used to connect the custom editors to the featuregrid. It contains a set of
+  * `rules`.
+  * Each rule in the `rules` array contains:
+  * - `editor`: the string name of the editor. For more information about custom editors and their specific props (`editorProps`), see {@link api/framework#components.data.featuregrid.editors.customEditors}
+  * - `regex`: An object with 2 regular expression, `attribute` and `typeName` that have to match with the specific attribute name and feature type name.
+  * - `editorProps`: the properties to pass to the specific editor.
+  * Example:
+  * ```json
+  * "customEditorsOptions": {
+  *    "rules": [{
+  *        "regex": {
+  *            "attribute": "^NUMERIC_ATTRIBUTE_NAME$",
+  *            "typeName": "^workspace:layer_name$"
+  *        },
+  *        "editor": "NumberEditor"
+  *    }, {
+  *        "regex": {
+  *            "attribute": "^att_varchar_constr$",
+  *            "typeName": "^test:mapstore_test$"
+  *        },
+  *        "editor": "DropDownEditor",
+  *        "editorProps": {
+  *            "values": ["Option1", "Option2", "Option3", "Option4"]
+  *        }
+  *    }
+  *    }]
+  *}
+  * ```
   * @prop {object} cfg.editingAllowedRoles array of user roles allowed to enter in edit mode
   * @prop {boolean} cfg.virtualScroll default true. Activates virtualScroll. When false the grid uses normal pagination
   * @prop {number} cfg.maxStoredPages default 5. In virtual Scroll mode determines the size of the loaded pages cache
@@ -54,8 +81,9 @@ const Dock = connect(createSelector(
   * @prop {boolean} cfg.showFilteredObject default false. Displays spatial filter selection area when true
   * @prop {boolean} cfg.showTimeSync default false. Shows the button to enable time sync
   * @prop {boolean} cfg.timeSync default false. If true, the timeSync is active by default.
+  * @prop {number} cfg.maxZoom the maximum zoom level for the "zoom to feature" functionality
   * @classdesc
-  * FeatureEditor Plugin Provides functionalities to browse/edit data via WFS. The grid can be configured to use paging or
+  * FeatureEditor Plugin, also called *FeatureGrid*, provides functionalities to browse/edit data via WFS. The grid can be configured to use paging or
   * <br/>virtual scroll mechanisms. By default virtual scroll is enabled. When on virtual scroll mode, the maxStoredPages param
   * <br/>sets the size of loaded pages cache, while vsOverscan and scrollDebounce params determine the behavior of grid scrolling
   * <br/>and of row loading.
@@ -88,6 +116,7 @@ const Dock = connect(createSelector(
   * {
   *   "name": "FeatureEditor",
   *   "cfg": {
+  *     "maxZoom": 21,
   *     "customEditorsOptions": {
   *       "rules": [{
   *         "regex": {
@@ -123,6 +152,7 @@ const FeatureDock = (props = {
     dialogs: EMPTY_OBJ,
     select: EMPTY_ARR
 }) => {
+    const { maxZoom } = props.pluginCfg;
     const dockProps = {
         dimMode: "none",
         defaultSize: 0.35,
@@ -180,6 +210,7 @@ const FeatureDock = (props = {
                         vsOverScan={props.vsOverScan}
                         scrollDebounce={props.scrollDebounce}
                         size={props.size}
+                        actionOpts={{maxZoom}}
                     />
                 </BorderLayout> }
 
@@ -189,6 +220,7 @@ const FeatureDock = (props = {
 };
 const selector = createSelector(
     state => get(state, "featuregrid.open"),
+    state => get(state, "featuregrid.customEditorsOptions"),
     state => get(state, "queryform.autocompleteEnabled"),
     state => wfsURLSelector(state),
     state => typeNameSelector(state),
@@ -201,13 +233,14 @@ const selector = createSelector(
     changesSelector,
     newFeaturesSelector,
     hasChangesSelector,
-    state => get(state, 'featuregrid.focusOnEdit') || [],
+    state => get(state, 'featuregrid.focusOnEdit', false),
     state => get(state, 'featuregrid.enableColumnFilters'),
     createStructuredSelector(paginationInfo),
     state => get(state, 'featuregrid.pages'),
     state => get(state, 'featuregrid.pagination.size'),
-    (open, autocompleteEnabled, url, typeName, features = EMPTY_ARR, describe, attributes, tools, select, mode, changes, newFeatures = EMPTY_ARR, hasChanges, focusOnEdit, enableColumnFilters, pagination, pages, size) => ({
+    (open, customEditorsOptions, autocompleteEnabled, url, typeName, features = EMPTY_ARR, describe, attributes, tools, select, mode, changes, newFeatures = EMPTY_ARR, hasChanges, focusOnEdit, enableColumnFilters, pagination, pages, size) => ({
         open,
+        customEditorsOptions,
         autocompleteEnabled,
         url,
         typeName,
@@ -263,4 +296,3 @@ export default createPlugin('FeatureEditor', {
         }
     }
 });
-

@@ -6,29 +6,31 @@
 * LICENSE file in the root directory of this source tree.
 */
 
-const React = require('react');
-const PropTypes = require('prop-types');
-const assign = require('object-assign');
-const {defaultProps, compose, mapPropsStream} = require('recompose');
-const {createSelector} = require('reselect');
-const {connect} = require('react-redux');
-const {isEqual} = require('lodash');
-const {NavItem, Glyphicon} = require('react-bootstrap');
-const { setFeaturedMapsEnabled} = require('../actions/maps');
+import React from 'react';
+import PropTypes from 'prop-types';
+import assign from 'object-assign';
+import {defaultProps, compose, mapPropsStream} from 'recompose';
+import {createSelector} from 'reselect';
+import {connect} from 'react-redux';
+import {NavItem, Glyphicon} from 'react-bootstrap';
+import { setFeaturedMapsEnabled} from '../actions/maps';
 
-const Message = require("../components/I18N/Message");
-const maptypeEpics = require('../epics/maptype');
-const mapsEpics = require('../epics/maps');
-const {userRoleSelector} = require('../selectors/security');
-const {mapTypeSelector} = require('../selectors/maptype');
-const {resourceSelector, searchTextSelector, isFeaturedMapsEnabled} = require('../selectors/featuredmaps');
-const {loadPage, updateItemsLifecycle} = require('../components/maps/enhancers/featuredMaps');
-const gridPagination = require('../components/misc/enhancers/gridPagination');
-const tooltip = require('../components/misc/enhancers/tooltip');
+import Message from "../components/I18N/Message";
+import mapsEpics from '../epics/maps';
+import {userRoleSelector} from '../selectors/security';
+import {versionSelector} from '../selectors/version';
+import {mapTypeSelector} from '../selectors/maptype';
+import {invalidationSelector, searchTextSelector, isFeaturedMapsEnabled} from '../selectors/featuredmaps';
+import {loadPage, updateItemsLifecycle} from '../components/maps/enhancers/featuredMaps';
+import gridPagination from '../components/misc/enhancers/gridPagination';
+import tooltip from '../components/misc/enhancers/tooltip';
 
-const MapsGrid = require('./maps/MapsGrid');
-const MetadataModal = require('./maps/MetadataModal');
-const {scrollIntoViewId} = require('../utils/DOMUtil');
+import MapsGrid from './maps/MapsGrid';
+import {scrollIntoViewId} from '../utils/DOMUtil';
+
+import featuredmaps from '../reducers/featuredmaps';
+import maptype from '../reducers/maptype';
+import {DASHBOARD_DEFAULT_SHARE_OPTIONS, GEOSTORY_DEFAULT_SHARE_OPTIONS} from '../utils/ShareUtils';
 
 const ToolTipedNavItem = tooltip(NavItem);
 
@@ -44,32 +46,37 @@ class FeaturedMaps extends React.Component {
         bottom: PropTypes.node,
         className: PropTypes.string,
         previousItems: PropTypes.array,
-        enableFeaturedMaps: PropTypes.func
+        enableFeaturedMaps: PropTypes.func,
+        version: PropTypes.string,
+        showAPIShare: PropTypes.bool,
+        shareOptions: PropTypes.object
     };
 
     static contextTypes = {
         router: PropTypes.object
     };
 
-
     UNSAFE_componentWillMount() {
         this.props.enableFeaturedMaps(true);
     }
 
     getShareOptions = (res) => {
-        if (res.category && res.category.name === 'GEOSTORY') {
-            return {
-                embedPanel: false,
-                advancedSettings: {
-                    homeButton: true
-                }
+        const categoryName = res.category?.name;
+        const shareOptions = this.props.shareOptions && categoryName
+            && this.props.shareOptions[categoryName.toLowerCase()];
+
+        if (categoryName === 'GEOSTORY') {
+            return shareOptions || GEOSTORY_DEFAULT_SHARE_OPTIONS;
+        }
+
+        if (categoryName === 'MAP') {
+            return shareOptions || {
+                embedPanel: true
             };
         }
 
-        if (res.category && res.category.name === 'MAP') {
-            return {
-                embedPanel: true
-            };
+        if (categoryName === 'DASHBOARD') {
+            return shareOptions || DASHBOARD_DEFAULT_SHARE_OPTIONS;
         }
 
         return {
@@ -85,12 +92,12 @@ class FeaturedMaps extends React.Component {
                 fluid={this.props.fluid}
                 className={this.props.className}
                 title={<h3><Message msgId="manager.featuredMaps" /></h3>}
-                maps={items}
+                resources={items}
                 colProps={this.props.colProps}
+                version={this.props.version}
                 viewerUrl={(res) => this.context.router.history.push('/' + this.makeShareUrl(res).url)}
                 getShareUrl={this.makeShareUrl}
                 shareOptions={this.getShareOptions} // TODO: share options depending on the content type
-                metadataModal={MetadataModal}
                 bottom={this.props.bottom}
                 style={items.length === 0 ? {display: 'none'} : {}}/>
         );
@@ -113,7 +120,8 @@ class FeaturedMaps extends React.Component {
             url: res.contextName ?
                 "context/" + res.contextName + "/" + res.id :
                 "viewer/" + this.props.mapType + "/" + res.id,
-            shareApi: true
+            shareApi: this.props.showAPIShare
+
         };
     }
 }
@@ -123,16 +131,18 @@ const featuredMapsPluginSelector = createSelector([
     userRoleSelector,
     state => state.browser && state.browser.mobile,
     searchTextSelector,
-    resourceSelector,
-    isFeaturedMapsEnabled
-], (mapType, role, isMobile, searchText, resource, isFeaturedEnabled) => ({
+    invalidationSelector,
+    isFeaturedMapsEnabled,
+    versionSelector
+], (mapType, role, isMobile, searchText, invalidate, isFeaturedEnabled, version) => ({
     mapType,
     role,
     permission: role === 'ADMIN',
     pagination: isMobile ? 'virtual-scroll-horizontal' : 'show-more',
     searchText,
-    resource,
-    isFeaturedEnabled
+    invalidate,
+    isFeaturedEnabled,
+    version
 }));
 
 const updateFeaturedMapsStream = mapPropsStream(props$ =>
@@ -140,7 +150,7 @@ const updateFeaturedMapsStream = mapPropsStream(props$ =>
         return props$
             .startWith({searchText, permission, viewSize, pageSize, loading: true})
             .distinctUntilChanged((previous, next) =>
-                isEqual(previous.resource, next.resource)
+                previous.invalidate === next.invalidate
                 && previous.searchText === next.searchText
                 && previous.permission === next.permission
                 && previous.role === next.role
@@ -152,10 +162,24 @@ const updateFeaturedMapsStream = mapPropsStream(props$ =>
     })));
 
 /**
- * FeaturedMaps plugin. Shows featured maps in a grid.
+ * FeaturedMaps plugin. Shows featured resources in a grid.
+ * Typically used in the {@link #pages.Maps|home page}.
+ * @name FeaturedMaps
  * @prop {string} cfg.pageSize change the page size (only desktop)
+ * @prop {boolean} cfg.shareOptions configuration applied to share panel grouped by category name
  * @memberof plugins
  * @class
+ * @example
+ * {
+ *   "name": "FeaturedMaps",
+ *   "cfg": {
+ *     "shareOptions": {
+ *       "dashboard": {
+ *         "embedPanel": false
+ *       }
+ *     }
+ *   }
+ * }
  */
 
 const FeaturedMapsPlugin = compose(
@@ -174,6 +198,7 @@ const FeaturedMapsPlugin = compose(
             md: 4,
             className: 'ms-map-card-col'
         },
+        showAPIShare: true,
         items: [],
         pageSize: PAGE_SIZE,
         skip: 0,
@@ -209,7 +234,7 @@ const IconNavItem = connect(featuredMapsPluginSelector)(({ isFeaturedEnabled }) 
         <Glyphicon glyph="star" />
     </ToolTipedNavItem>) : null);
 
-module.exports = {
+export default {
     FeaturedMapsPlugin: assign(FeaturedMapsPlugin, {
         NavMenu: {
             position: 1,
@@ -218,12 +243,10 @@ module.exports = {
         }
     }),
     epics: {
-        ...maptypeEpics,
         ...mapsEpics
     },
     reducers: {
-        featuredmaps: require('../reducers/featuredmaps'),
-        maptype: require('../reducers/maptype'),
-        currentMap: require('../reducers/currentMap')
+        featuredmaps,
+        maptype
     }
 };

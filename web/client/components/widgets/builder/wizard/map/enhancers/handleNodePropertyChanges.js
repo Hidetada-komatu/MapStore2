@@ -6,9 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 // handle property changes
-const { withHandlers } = require('recompose');
-const {belongsToGroup} = require('../../../../../../utils/LayersUtils');
-const { findIndex } = require('lodash');
+
+import { castArray, findIndex } from 'lodash';
+import { withHandlers } from 'recompose';
+
+import {belongsToGroup} from '../../../../../../utils/LayersUtils';
+
 /**
  * Add to the TOC or the Node editor some handlers for TOC nodes
  * add to the wrapped component the following methods:
@@ -19,7 +22,7 @@ const { findIndex } = require('lodash');
  * These method will call the method `onChange` from props mapping accordingly
  * @prop {function} onChange callback with arguments : (path, value) -> path will be something like: `map.layers[2].title` or `map.groups[1].title`, `map[somethingElse]`
  */
-module.exports = withHandlers({
+export default withHandlers({
     /**
      * Changes the layer property
      */
@@ -49,10 +52,18 @@ module.exports = withHandlers({
     changeGroupProperty:
         ({ onChange = () => { }, map = [] }) =>
             (id, key, value) => {
-                const index = findIndex(map.groups || [], {
-                    id
-                });
-                onChange(`map.groups[${index}].${key}`, value);
+
+                const EXPANDED = 'expanded';
+                const groups = map.groups ? castArray(map.groups) : [];
+                const groupIndex = findIndex(groups, (group) => id === group.id);
+                // if no group is found, then we add a new group
+                let correctGroupIndex = groupIndex === -1 ? groups.length : groupIndex;
+
+                if (key === EXPANDED && !groups?.[correctGroupIndex]?.id) {
+                    // add id if missing
+                    onChange(`map.groups[${correctGroupIndex}].id`, id);
+                }
+                onChange(`map.groups[${correctGroupIndex}].${key}`, value);
             },
     updateMapEntries: ({ onChange = () => { } }) => (obj = {}) => Object.keys(obj).map(k => onChange(`map[${k}]`, obj[k]))
 });

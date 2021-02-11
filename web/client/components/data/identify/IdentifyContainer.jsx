@@ -6,17 +6,20 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const {Row, Col} = require('react-bootstrap');
-const {get} = require('lodash');
-const Toolbar = require('../../misc/toolbar/Toolbar');
-const Message = require('../../I18N/Message');
-const DockablePanel = require('../../misc/panels/DockablePanel');
-const GeocodeViewer = require('./GeocodeViewer');
-const ResizableModal = require('../../misc/ResizableModal');
-const Portal = require('../../misc/Portal');
-const Coordinate = require('./coordinates/Coordinate');
-const {getFormatForResponse, responseValidForEdit} = require('../../../utils/IdentifyUtils');
+import React from 'react';
+
+import { Row } from 'react-bootstrap';
+import { get } from 'lodash';
+import Toolbar from '../../misc/toolbar/Toolbar';
+import Message from '../../I18N/Message';
+import DockablePanel from '../../misc/panels/DockablePanel';
+import GeocodeViewer from './GeocodeViewer';
+import ResizableModal from '../../misc/ResizableModal';
+import Portal from '../../misc/Portal';
+import Coordinate from './coordinates/Coordinate';
+import { responseValidForEdit } from '../../../utils/IdentifyUtils';
+import LayerSelector from './LayerSelector';
+
 /**
  * Component for rendering Identify Container inside a Dockable container
  * @memberof components.data.identify
@@ -26,9 +29,9 @@ const {getFormatForResponse, responseValidForEdit} = require('../../../utils/Ide
  * @prop {function} viewer component that will be used as viewer of Identify
  * @prop {object} viewerOptions options to use with the viewer, eg { header: MyHeader, container: MyContainer }
  * @prop {function} getToolButtons must return an array of object representing the toolbar buttons, eg (props) => [{ glyph: 'info-sign', tooltip: 'hello!'}]
- * @prop {function} getNavigationButtons must return an array of navigation buttons, eg (props) => [{ glyph: 'info-sign', tooltip: 'hello!'}]
+ * @prop {function} getFeatureButtons must return an array of buttons relating to feature interaction, eg (props) => [{ glyph: 'zoom-to', tooltip: 'Zoom to Extent'}]
  */
-module.exports = props => {
+export default props => {
     const {
         enabled,
         requests = [],
@@ -44,7 +47,7 @@ module.exports = props => {
         validResponses = [],
         viewer = () => null,
         getToolButtons = () => [],
-        getNavigationButtons = () => [],
+        getFeatureButtons = () => [],
         showFullscreen,
         reverseGeocodeData = {},
         point,
@@ -63,11 +66,13 @@ module.exports = props => {
         showCoordinateEditor,
         onSubmitClickPoint,
         onChangeFormat,
-        formatCoord
+        formatCoord,
+        loaded,
+        validator = () => null
     } = props;
-
     const latlng = point && point.latlng || null;
-    const {layer} = responses[index] || {};
+    const targetResponse = validResponses[index]; // the index is calculated on the valid responses hence using all responses leads to wrong results
+    const {layer} = targetResponse || {};
 
     let lngCorrected = null;
     if (latlng) {
@@ -87,14 +92,14 @@ module.exports = props => {
         lngCorrected,
         validResponses,
         latlng,
-        showEdit: showEdit && isEditingAllowed && !!responses[index] && responseValidForEdit(responses[index]) &&
-            getFormatForResponse(responses[index], props) !== 'application/json',
+        showEdit: showEdit && isEditingAllowed && !!targetResponse && responseValidForEdit(targetResponse),
         onEdit: onEdit.bind(null, layer && {
             id: layer.id,
             name: layer.name,
             url: get(layer, 'search.url')
         })
     });
+    const emptyResponses = requests.length === validator(format)?.getNoValidResponses(responses)?.length || 0;
     const missingResponses = requests.length - responses.length;
     const revGeocodeDisplayName = reverseGeocodeData.error ? <Message msgId="identifyRevGeocodeError"/> : reverseGeocodeData.display_name;
     return (
@@ -102,7 +107,6 @@ module.exports = props => {
             <DockablePanel
                 bsStyle="primary"
                 glyph="map-marker"
-                title={!viewerOptions.header ? validResponses[index] && validResponses[index].layerMetadata && validResponses[index].layerMetadata.title || '' : <Message msgId="identifyTitle" />}
                 open={enabled && requests.length !== 0}
                 size={size}
                 fluid={fluid}
@@ -114,43 +118,51 @@ module.exports = props => {
                 showFullscreen={showFullscreen}
                 zIndex={zIndex}
                 header={[
-                    <Coordinate
-                        key="coordinate-editor"
-                        formatCoord={formatCoord}
-                        enabledCoordEditorButton={enabledCoordEditorButton}
-                        onSubmit={onSubmitClickPoint}
-                        onChangeFormat={onChangeFormat}
-                        edit={showCoordinateEditor}
-                        coordinate={{
-                            lat: latlng && latlng.lat,
-                            lon: lngCorrected
-                        }}
-                    />,
-                    <GeocodeViewer latlng={latlng} revGeocodeDisplayName={revGeocodeDisplayName} {...props}/>,
-                    <Row key="button-row" className="text-center" style={{position: 'relative'}}>
-                        <Col key="tools" xs={12}>
+                    <Row className="layer-select-row">
+                        <div className="layer-col">
+                            <span className="identify-icon glyphicon glyphicon-1-layer"/>
+                            <LayerSelector
+                                responses={validResponses}
+                                index={index}
+                                loaded={loaded}
+                                setIndex={setIndex}
+                                missingResponses={missingResponses}
+                                emptyResponses={emptyResponses}
+                                validator={validator}
+                                format={format}
+                            />
                             <Toolbar
                                 btnDefaultProps={{ bsStyle: 'primary', className: 'square-button-md' }}
-                                buttons={toolButtons}
-                                transitionProps={null
-                                    /* transitions was causing a bad rendering of toolbar present in the identify panel
-                                         * for this reason they ahve been disabled
-                                        */
-                                }/>
-                        </Col>
-                        <div key="navigation" style={{
-                            zIndex: 1,
-                            position: "absolute",
-                            right: 0,
-                            top: 0,
-                            margin: "0 10px"
-                        }}>
-                            <Toolbar
-                                btnDefaultProps={{ bsStyle: 'primary', className: 'square-button-md' }}
-                                buttons={getNavigationButtons(props)}
-                                transitionProps={null /* same here */}
+                                buttons={getFeatureButtons(props)}
+                                transitionProps={null}
                             />
                         </div>
+                    </Row>,
+                    <Row className="coordinates-edit-row">
+                        <span className="identify-icon glyphicon glyphicon-point"/>
+                        <div className={"coordinate-editor"}>
+                            <Coordinate
+                                key="coordinate-editor"
+                                formatCoord={formatCoord}
+                                enabledCoordEditorButton={enabledCoordEditorButton}
+                                onSubmit={onSubmitClickPoint}
+                                onChangeFormat={onChangeFormat}
+                                edit={showCoordinateEditor}
+                                coordinate={{
+                                    lat: latlng && latlng.lat,
+                                    lon: lngCorrected
+                                }}
+                            />
+                        </div>
+                        <GeocodeViewer latlng={latlng} revGeocodeDisplayName={revGeocodeDisplayName} {...props}/>
+                        <Toolbar
+                            btnDefaultProps={{ bsStyle: 'primary', className: 'square-button-md' }}
+                            buttons={toolButtons}
+                            transitionProps={null
+                            /* transitions was causing a bad rendering of toolbar present in the identify panel
+                                 * for this reason they ahve been disabled
+                                */
+                            }/>
                     </Row>
                 ].filter(headRow => headRow)}>
                 <Viewer
@@ -159,6 +171,7 @@ module.exports = props => {
                     format={format}
                     missingResponses={missingResponses}
                     responses={responses}
+                    requests={requests}
                     showEmptyMessageGFI={showEmptyMessageGFI}
                     {...viewerOptions}/>
             </DockablePanel>

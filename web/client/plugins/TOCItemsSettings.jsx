@@ -6,47 +6,54 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
-
+import {connect} from 'react-redux';
+import { compose, defaultProps, getContext, withPropsOnChange } from 'recompose';
 import {createSelector} from 'reselect';
-import { compose, defaultProps, withPropsOnChange, getContext} from 'recompose';
-import { createPlugin } from '../utils/PluginsUtils';
-import LayersUtils from '../utils/LayersUtils';
-import {hideSettings, updateSettings, updateNode, updateSettingsParams} from '../actions/layers';
+
+import {setControlProperty} from '../actions/controls';
 import {getLayerCapabilities} from '../actions/layerCapabilities';
+import {hideSettings, updateNode, updateSettings, updateSettingsParams} from '../actions/layers';
+import {toggleStyleEditor} from '../actions/styleeditor';
 import {updateSettingsLifecycle} from "../components/TOC/enhancers/tocItemsSettings";
 import TOCItemsSettings from '../components/TOC/TOCItemsSettings';
-import defaultSettingsTabs from './tocitemssettings/defaultSettingsTabs';
-import { initialSettingsSelector, originalSettingsSelector, activeTabSettingsSelector } from '../selectors/controls';
-import {layerSettingSelector, layersSelector, groupsSelector, elementSelector} from '../selectors/layers';
+import { activeTabSettingsSelector, initialSettingsSelector, originalSettingsSelector } from '../selectors/controls';
+import {elementSelector, groupsSelector, layerSettingSelector, layersSelector} from '../selectors/layers';
+import {currentLocaleLanguageSelector, currentLocaleSelector} from '../selectors/locale';
+import {isLocalizedLayerStylesEnabledSelector} from '../selectors/localizedLayerStyles';
 import {mapLayoutValuesSelector} from '../selectors/maplayout';
-import {currentLocaleSelector} from '../selectors/locale';
 import {isAdminUserSelector} from '../selectors/security';
-import {setControlProperty} from '../actions/controls';
-import {toggleStyleEditor} from '../actions/styleeditor';
+import {
+    getDimension
+} from '../utils/LayersUtils';
+import { createPlugin } from '../utils/PluginsUtils';
+import defaultSettingsTabs from './tocitemssettings/defaultSettingsTabs';
 
 const tocItemsSettingsSelector = createSelector([
     layerSettingSelector,
     layersSelector,
     groupsSelector,
     currentLocaleSelector,
+    currentLocaleLanguageSelector,
     state => mapLayoutValuesSelector(state, {height: true}),
     isAdminUserSelector,
     initialSettingsSelector,
     originalSettingsSelector,
     activeTabSettingsSelector,
-    elementSelector
-], (settings, layers, groups, currentLocale, dockStyle, isAdmin, initialSettings, originalSettings, activeTab, element) => ({
+    elementSelector,
+    isLocalizedLayerStylesEnabledSelector
+], (settings, layers, groups, currentLocale, currentLocaleLanguage, dockStyle, isAdmin, initialSettings, originalSettings, activeTab, element, isLocalizedLayerStylesEnabled) => ({
     settings,
     element,
     groups,
     currentLocale,
+    currentLocaleLanguage,
     dockStyle,
     isAdmin,
     initialSettings,
     originalSettings,
-    activeTab
+    activeTab,
+    isLocalizedLayerStylesEnabled
 }));
 
 /**
@@ -64,6 +71,8 @@ const tocItemsSettingsSelector = createSelector([
  * @prop cfg.enableIFrameModule {bool} enable iframe in template editor of feature info, default true
  * @prop cfg.hideTitleTranslations {bool} if true hide the title translations tool
  * @prop cfg.showTooltipOptions {bool} if true, it shows tooltip section
+ * @prop cfg.initialActiveTab {string} tab that will be enabled initially when the settings are opened. Possible values:
+ * 'general' (General tab), 'display' (Display tab), 'style' (Style tab), 'feature' (Feature info tab).
  * @example
  * {
  *   "name": "TOCItemsSettings",
@@ -87,7 +96,8 @@ const TOCItemsSettingsPlugin = compose(
     }),
     updateSettingsLifecycle,
     defaultProps({
-        getDimension: LayersUtils.getDimension
+        getDimension: getDimension,
+        enableLayerNameEditFeedback: true
     }),
     getContext({
         loadedPlugins: PropTypes.object
@@ -99,11 +109,6 @@ const TOCItemsSettingsPlugin = compose(
     }))
 )(TOCItemsSettings);
 
-/**
- * TOCItemsSettings. Add to the TOC the possibility to edit layers.
- * @memberof plugins
- * @requires plugins.TOC
- */
 export default createPlugin('TOCItemsSettings', {
     component: TOCItemsSettingsPlugin,
     containers: {

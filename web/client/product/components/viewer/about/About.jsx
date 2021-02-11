@@ -1,4 +1,5 @@
-var PropTypes = require('prop-types');
+import PropTypes from 'prop-types';
+
 /**
  * Copyright 2015, GeoSolutions Sas.
  * All rights reserved.
@@ -6,14 +7,15 @@ var PropTypes = require('prop-types');
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const InfoButton = require('../../../../components/buttons/InfoButton');
-const Dialog = require('../../../../components/misc/Dialog');
-const AboutContent = require('./AboutContent');
-const I18N = require('../../../../components/I18N/I18N');
-const aboutImg = require('../../../assets/img/Blank.gif');
-const assign = require('object-assign');
-const {Glyphicon} = require('react-bootstrap');
+import React from 'react';
+
+import InfoButton from '../../../../components/buttons/InfoButton';
+import Dialog from '../../../../components/misc/Dialog';
+import AboutContent from './AboutContent';
+import { Message } from '../../../../components/I18N/I18N';
+import aboutImg from '../../../assets/img/Blank.gif';
+import assign from 'object-assign';
+import { Glyphicon } from 'react-bootstrap';
 
 class About extends React.Component {
     static propTypes = {
@@ -41,19 +43,33 @@ class About extends React.Component {
     };
 
     render() {
-        return this.props.withButton ? (<InfoButton
-            {...this.props.modalConfig}
-            image={aboutImg}
-            title={<I18N.Message msgId="about_title"/>}
-            btnType="image"
-            className="map-logo"
-            body={
-                <AboutContent/>
-            }/>) : (<Dialog id="mapstore-about" style={assign({}, {zIndex: 1992, display: this.props.enabled ? "block" : "none"})} draggable={false} modal>
-            <span role="header"><span className="about-panel-title"><I18N.Message msgId="about_title"/></span><button onClick={this.props.onClose} className="about-panel-close close">{this.props.modalConfig.closeGlyph ? <Glyphicon glyph={this.props.modalConfig.closeGlyph}/> : <span>×</span>}</button></span>
-            <div role="body"><AboutContent/></div>
-        </Dialog>);
+        return this.props.withButton ? (
+            <InfoButton
+                {...this.props.modalConfig}
+                image={aboutImg}
+                title={<Message msgId="about_title"/>}
+                btnType="image"
+                className="map-logo"
+                body={
+                    <AboutContent/>
+                }/>) : (
+            <Dialog
+                id="mapstore-about"
+                style={assign({}, {zIndex: 1992, display: this.props.enabled ? "block" : "none"})}
+                modal
+                draggable
+            >
+                <span role="header">
+                    <span className="about-panel-title">
+                        <Message msgId="about_title"/>
+                    </span>
+                    <button onClick={this.props.onClose} className="about-panel-close close">
+                        {this.props.modalConfig.closeGlyph ? <Glyphicon glyph={this.props.modalConfig.closeGlyph}/> : <span>×</span>}
+                    </button>
+                </span>
+                <div role="body"><AboutContent/></div>
+            </Dialog>);
     }
 }
 
-module.exports = About;
+export default About;

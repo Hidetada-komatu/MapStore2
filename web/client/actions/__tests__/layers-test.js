@@ -6,8 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-var expect = require('expect');
-var {
+import expect from 'expect';
+
+import {
     TOGGLE_NODE,
     SORT_NODE,
     REMOVE_NODE,
@@ -58,8 +59,9 @@ var {
     hideLayerMetadata,
     updateSettingsParams,
     addGroup
-} = require('../layers');
-var {getLayerCapabilities} = require('../layerCapabilities');
+} from '../layers';
+
+import { getLayerCapabilities } from '../layerCapabilities';
 
 describe('Test correctness of the layers actions', () => {
     it('test layer properties change action', (done) => {
@@ -330,5 +332,18 @@ describe('Test correctness of the layers actions', () => {
         expect(action.type).toBe(ADD_GROUP);
         expect(action.group).toBe('newgroup');
         expect(action.parent).toBe('group1.group2');
+    });
+
+    it('add group with options', () => {
+        const options = {
+            id: 'uuid',
+            title: 'My title',
+            expanded: true
+        };
+        const action = addGroup(options.id, undefined, options);
+        expect(action.type).toBe(ADD_GROUP);
+        expect(action.group).toBe(options.id);
+        expect(action.parent).toBeFalsy();
+        expect(action.options).toEqual(options);
     });
 });

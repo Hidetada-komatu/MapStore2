@@ -1,4 +1,3 @@
-const PropTypes = require('prop-types');
 /*
  * Copyright 2016, GeoSolutions Sas.
  * All rights reserved.
@@ -7,20 +6,26 @@ const PropTypes = require('prop-types');
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const assign = require('object-assign');
-const {UserDetails, PasswordReset, UserMenu, Login, LoginNav } = require('./login/index');
+import './login/login.css';
 
-require('./login/login.css');
+import assign from 'object-assign';
+import PropTypes from 'prop-types';
+import React from 'react';
+
+import epics from '../epics/login';
+import { comparePendingChanges } from '../epics/pendingChanges';
+import security from '../reducers/security';
+import { Login, LoginNav, PasswordReset, UserDetails, UserMenu } from './login/index';
 
 /**
-  * Login Plugin. Allow to login/logout or show user info and reset password tools
+  * Login Plugin. Allow to login/logout or show user info and reset password tools.
+  * It renders a menu in {@link #plugins.OmniBar|OmniBar} plugin.
   * @class Login
   * @memberof plugins
   * @static
   *
   * @prop {string} cfg.id identifier of the Plugin, by default `"mapstore-login-menu"`
-  * @prop {object} cfg.menuStyle inline style for the menu, by defualt:
+  * @prop {object} cfg.menuStyle inline style for the menu, by default:
   * ```
   * menuStyle: {
   *      zIndex: 30
@@ -52,7 +57,7 @@ class LoginTool extends React.Component {
     }
 }
 
-module.exports = {
+export default {
     LoginPlugin: assign(LoginTool, {
         OmniBar: {
             name: "login",
@@ -62,6 +67,9 @@ module.exports = {
             priority: 1
         }
     }),
-    reducers: {security: require('../reducers/security')},
-    epics: require('../epics/login')
+    reducers: {security},
+    epics: {
+        ...epics,
+        comparePendingChanges
+    }
 };

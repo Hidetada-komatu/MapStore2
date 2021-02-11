@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-module.exports = {
+export default {
     BingLayer: require('./BingLayer').default,
     GoogleLayer: require('./GoogleLayer').default,
     GraticuleLayer: require('./GraticuleLayer').default,
@@ -16,6 +16,7 @@ module.exports = {
     TMSLayer: require('./TMSLayer').default,
     TileProviderLayer: require('./TileProviderLayer').default,
     VectorLayer: require('./VectorLayer').default,
+    WFSLayer: require('./WFSLayer').default,
     WFS3Layer: require('./WFS3Layer').default,
     WMSLayer: require('./WMSLayer').default,
     WMTSLayer: require('./WMTSLayer').default

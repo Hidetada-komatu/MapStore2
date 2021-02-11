@@ -6,13 +6,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const ReactDOM = require('react-dom');
-const assign = require('object-assign');
-const expect = require('expect');
-const {loadPage, updateItemsLifecycle} = require('../featuredMaps');
+import expect from 'expect';
+import assign from 'object-assign';
+import React from 'react';
+import ReactDOM from 'react-dom';
 
-const GeoStoreDAO = require('../../../../api/GeoStoreDAO');
+import GeoStoreDAO from '../../../../api/GeoStoreDAO';
+import {loadPage, updateItemsLifecycle} from '../featuredMaps';
+
 const oldAddBaseUri = GeoStoreDAO.addBaseUrl;
 
 describe('featuredMaps enhancher', () => {
@@ -57,15 +58,36 @@ describe('featuredMaps enhancher', () => {
                     canEdit: true,
                     creation: '2017-11-10T14:26:34.167+01:00',
                     description: 'Map',
+                    details: 'somedetailspath',
                     lastUpdate: '2018-02-12T11:42:31.676+01:00',
-                    context: undefined,
                     contextName: null,
-                    thumbnail: undefined,
+                    thumbnail: "pathtothumbnail",
+                    owner: 'admin',
+                    featured: 'added',
+                    featuredEnabled: true
+                },
+                {
+                    id: 3,
+                    name: 'a context',
+                    category: {
+                        id: 2,
+                        name: "CONTEXT"
+                    },
+                    icon: null,
+                    canCopy: true,
+                    canDelete: true,
+                    canEdit: true,
+                    creation: '2017-11-10T14:26:34.167+01:00',
+                    description: 'a context',
+                    lastUpdate: '2018-02-12T11:42:31.676+01:00',
+                    context: "context_id",
+                    contextName: null,
+                    thumbnail: "pathtothumbnail",
                     owner: 'admin',
                     featured: 'added',
                     featuredEnabled: true
                 }],
-                total: 1,
+                total: 2,
                 loading: false
             });
             done();

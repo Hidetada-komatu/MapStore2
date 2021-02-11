@@ -6,17 +6,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const PropTypes = require('prop-types');
-const {Row, Col, Nav, NavItem, Glyphicon} = require('react-bootstrap');
-const DockablePanel = require('../misc/panels/DockablePanel');
-const Toolbar = require('../misc/toolbar/Toolbar');
-const tooltip = require('../misc/enhancers/tooltip');
+import React from 'react';
+
+import PropTypes from 'prop-types';
+import { Row, Col, Nav, NavItem, Glyphicon } from 'react-bootstrap';
+import DockablePanel from '../misc/panels/DockablePanel';
+import Toolbar from '../misc/toolbar/Toolbar';
+import tooltip from '../misc/enhancers/tooltip';
 const NavItemT = tooltip(NavItem);
-const ResizableModal = require('../misc/ResizableModal');
-const Portal = require('../misc/Portal');
-const {head, isObject, isString} = require('lodash');
-const Message = require('../I18N/Message');
+import ResizableModal from '../misc/ResizableModal';
+import Portal from '../misc/Portal';
+import { head, isObject, isString } from 'lodash';
+import Message from '../I18N/Message';
 
 /**
  * Component for rendering TOC Settings as tabs inside a Dockable contanier
@@ -34,6 +35,7 @@ const TOCItemSettings = (props) => {
         className = '',
         activeTab = 'general',
         currentLocale = 'en-US',
+        currentLocaleLanguage = 'en',
         width = 500,
         groups = [],
         element = {},
@@ -53,7 +55,8 @@ const TOCItemSettings = (props) => {
         draggable,
         position = 'left',
         tabs = [],
-        tabsConfig = {}
+        tabsConfig = {},
+        isLocalizedLayerStylesEnabled = false
     } = props;
 
 
@@ -131,7 +134,9 @@ const TOCItemSettings = (props) => {
                         nodeType={settings.nodeType}
                         settings={settings}
                         retrieveLayerData={onRetrieveLayerData}
-                        onChange={(key, value) => isObject(key) ? onUpdateParams(key, realtimeUpdate) : onUpdateParams({[key]: value}, realtimeUpdate)}/>
+                        onChange={(key, value) => isObject(key) ? onUpdateParams(key, realtimeUpdate) : onUpdateParams({[key]: value}, realtimeUpdate)}
+                        isLocalizedLayerStylesEnabled={isLocalizedLayerStylesEnabled}
+                        currentLocaleLanguage={currentLocaleLanguage}/>
                 ))}
             </DockablePanel>
             <Portal>
@@ -169,4 +174,4 @@ TOCItemSettings.contextTypes = {
     loadedPlugins: PropTypes.object
 };
 
-module.exports = TOCItemSettings;
+export default TOCItemSettings;

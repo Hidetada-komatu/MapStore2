@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const {
+import {
     ERROR_FEATURE_INFO,
     EXCEPTIONS_FEATURE_INFO,
     LOAD_FEATURE_INFO,
@@ -29,28 +29,64 @@ const {
     TOGGLE_EMPTY_MESSAGE_GFI,
     CHANGE_FORMAT,
     TOGGLE_SHOW_COORD_EDITOR,
-    SET_EDIT_FEATURE_QUERY
-} = require('../actions/mapInfo');
-const {
-    MAP_CONFIG_LOADED
-} = require('../actions/config');
-const {RESET_CONTROLS} = require('../actions/controls');
+    SET_CURRENT_EDIT_FEATURE_QUERY,
+    SET_MAP_TRIGGER
+} from '../actions/mapInfo';
 
-const assign = require('object-assign');
-const {head} = require('lodash');
+import { MAP_CONFIG_LOADED } from '../actions/config';
+import { RESET_CONTROLS } from '../actions/controls';
+import assign from 'object-assign';
+import { findIndex, isUndefined } from 'lodash';
+import { MAP_TYPE_CHANGED } from './../actions/maptype';
 
+/**
+ * Handles responses based on the type ["data"|"exceptions","error","vector"] of the responses received
+ * @param {object} state current state of the reducer
+ * @param {object} action object of the current response
+ * @param {string} type type of the response received
+ */
 function receiveResponse(state, action, type) {
-    const request = head((state.requests || []).filter((req) => req.reqId === action.reqId));
-    if (request) {
-        const responses = state.responses || [];
-        return assign({}, state, {
-            responses: [...responses, {
+    const isVector = type === "vector";
+    const requestIndex = !isVector ? findIndex((state.requests || []), (req) => req.reqId === action.reqId) : action.reqId;
+
+    if (requestIndex !== -1) {
+        // Filter un-queryable layer
+        if (["exceptions", "error"].includes(type)) {
+            const fltRequests = state.requests.filter((_, index)=> index !== requestIndex);
+            const fltResponses = state.responses.filter((_, index)=> index !== requestIndex);
+            return {
+                ...state, responses: fltResponses, requests: fltRequests
+            };
+        }
+
+        // Handle data and vector responses
+        const {configuration: config, requests} = state;
+        let responses = state.responses || [];
+        const isHover = (config?.trigger === "hover"); // Display info trigger
+
+        if (!isVector) {
+            const updateResponse = {
                 response: action[type],
                 queryParams: action.requestParams,
                 layerMetadata: action.layerMetadata,
                 layer: action.layer
-            }]
-        });
+            };
+            if (isHover) {
+                // Add response upon it is received
+                responses = [...responses, updateResponse];
+            } else {
+                // Add response in same order it was requested
+                responses[requestIndex] = updateResponse;
+            }
+        }
+
+        let indexObj = {loaded: true, index: 0};
+        // Set responses and index as first response is received
+        return assign({}, state, {
+            ...(isVector && {requests}),
+            ...(!isUndefined(indexObj) && indexObj),
+            responses: [...responses]}
+        );
     }
     return state;
 }
@@ -206,10 +242,8 @@ function mapInfo(state = initState, action) {
         });
     }
     case PURGE_MAPINFO_RESULTS:
-        return assign({}, state, {
-            responses: [],
-            requests: []
-        });
+        const {index, loaded, ...others} = state;
+        return {...others, queryableLayers: [], responses: [], requests: [] };
     case LOAD_FEATURE_INFO: {
         return receiveResponse(state, action, 'data');
     }
@@ -314,21 +348,35 @@ function mapInfo(state = initState, action) {
             }
 
         );
-        const responses = state.responses || [];
-        return assign({}, state, {
-            requests: [...state.requests, {}],
-            responses: [...responses, {
-                response: {
-                    crs: null,
-                    features: intersected,
-                    totalFeatures: "unknown",
-                    type: "FeatureCollection"
-                },
-                queryParams: action.request,
-                layerMetadata: action.metadata,
-                format: 'JSON'
-            }]
-        });
+        let responses = state.responses || [];
+        const isHover = state?.configuration?.trigger === 'hover' || false;
+        const vectorResponse = {
+            response: {
+                crs: null,
+                features: intersected,
+                totalFeatures: "unknown",
+                type: "FeatureCollection"
+            },
+            queryParams: action.request,
+            layerMetadata: action.metadata,
+            format: 'JSON'
+        };
+        let vectorAction;
+        // Add response such that it doesn't replace other layer response's index
+        if (!isHover) {
+            responses[state.requests.length] = vectorResponse;
+            // To identify vector request index
+            vectorAction = {reqId: state.requests.length};
+        } else {
+            responses = [...responses, vectorResponse];
+            vectorAction = {reqId: 0};
+        }
+        const requests = [...state.requests, {}];
+        return receiveResponse(assign({}, state, {
+            requests,
+            queryableLayers: action.queryableLayers,
+            responses: [...responses]
+        }), vectorAction, "vector");
     }
     case UPDATE_CENTER_TO_MARKER: {
         return assign({}, state, {
@@ -359,15 +407,36 @@ function mapInfo(state = initState, action) {
             showCoordinateEditor: !action.showCoordinateEditor
         };
     }
-    case SET_EDIT_FEATURE_QUERY: {
+    case SET_CURRENT_EDIT_FEATURE_QUERY: {
         return {
             ...state,
-            editFeatureQuery: action.query
+            currentEditFeatureQuery: action.query
         };
+    }
+    case SET_MAP_TRIGGER: {
+        return {
+            ...state,
+            configuration: {
+                ...state.configuration,
+                trigger: action.trigger
+            }
+        };
+    }
+    case MAP_TYPE_CHANGED: {
+        if (action.mapType === "cesium") {
+            return {
+                ...state,
+                configuration: {
+                    ...state.configuration,
+                    trigger: "click"
+                }
+            };
+        }
+        return state;
     }
     default:
         return state;
     }
 }
 
-module.exports = mapInfo;
+export default mapInfo;

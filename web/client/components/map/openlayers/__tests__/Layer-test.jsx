@@ -21,9 +21,13 @@ import '../plugins/MapQuest';
 import '../plugins/VectorLayer';
 import '../plugins/GraticuleLayer';
 import '../plugins/OverlayLayer';
+import '../plugins/TMSLayer';
+import '../plugins/WFSLayer';
 import '../plugins/WFS3Layer';
 
-import SecurityUtils from '../../../../utils/SecurityUtils';
+import {
+    setStore
+} from '../../../../utils/SecurityUtils';
 import ConfigUtils from '../../../../utils/ConfigUtils';
 
 import { Map, View } from 'ol';
@@ -32,6 +36,7 @@ import { defaults as defaultControls } from 'ol/control';
 import axios from "../../../../libs/ajax";
 import MockAdapter from "axios-mock-adapter";
 import {get} from 'ol/proj';
+import { getResolutions } from '../../../../utils/MapUtils';
 
 let mockAxios;
 
@@ -281,6 +286,66 @@ describe('Openlayers layer', () => {
         expect(map.getLayers().item(0).getSource().urls.length).toBe(1);
         expect(map.getLayers().item(0).getSource().getAttributions()).toNotExist();
     });
+    it('creates a single tile wms layer for openlayers map with long url', (done) => {
+
+        let options = {
+            "type": "wms",
+            "visibility": true,
+            "maxLengthUrl": 2000,
+            "singleTile": true,
+            "name": "long:layerName",
+            "group": "groupname",
+            "format": "image/png",
+            "params": {
+                "CQL_FILTER": 'age=93.9 AND (INTERSECTS("the_geom",SRID=3857;Polygon((-11533148.77274199 4642479.349928465, -11534311.330457991 4679472.5362776555, -11537794.415521812 4716319.727420906, -11543584.281787973 4752875.504328652, -11551658.079299463 4788995.598050187, -11561983.944466071 4824537.459077292, -11574521.125815421 4859360.819922024, -11589220.144820424 4893328.248688412, -11606022.991168408 4926305.6914533535, -11624863.351701329 4958163.001316219, -11645666.872123504 4988774.4520291975, -11668351.450444052 5018019.234181368, -11692827.56099594 5045781.931978245, -11718998.60775289 5071952.978735196, -11746761.305549767 5096429.089287084, -11776006.087701939 5119113.667607632, -11806617.538414918 5139917.188029807, -11838474.848277781 5158757.548562728, -11871452.291042725 5175560.394910712, -11905419.719809111 5190259.413915714, -11940243.080653844 5202796.595265065, -11975784.94168095 5213122.460431673, -12011905.035402484 5221196.257943163, -12048460.81231023 5226986.124209325, -12085308.00345348 5230469.209273145, -12122301.18980267 5231631.766989145, -12159294.376151862 5230469.209273145, -12196141.567295112 5226986.124209325, -12232697.344202857 5221196.257943163, -12268817.437924393 5213122.460431673, -12304359.298951497 5202796.595265065, -12339182.65979623 5190259.413915714, -12373150.088562617 5175560.394910712, -12406127.53132756 5158757.548562728, -12437984.841190424 5139917.188029807, -12468596.291903403 5119113.667607632, -12497841.074055575 5096429.089287084, -12525603.771852452 5071952.978735196, -12551774.818609402 5045781.931978245, -12576250.92916129 5018019.234181368, -12598935.507481838 4988774.4520291975, -12619739.027904013 4958163.001316219, -12638579.388436934 4926305.6914533535, -12655382.234784918 4893328.248688412, -12670081.25378992 4859360.819922024, -12682618.43513927 4824537.459077292, -12692944.300305879 4788995.598050187, -12701018.097817369 4752875.504328652, -12706807.96408353 4716319.727420906, -12710291.04914735 4679472.5362776555, -12711453.606863352 4642479.349928465, -12710291.04914735 4605486.163579274, -12706807.96408353 4568638.972436024, -12701018.097817369 4532083.195528277, -12692944.300305879 4495963.101806743, -12682618.43513927 4460421.240779637, -12670081.25378992 4425597.879934905, -12655382.234784918 4391630.4511685185, -12638579.388436934 4358653.008403576, -12619739.027904013 4326795.698540711, -12598935.507481838 4296184.247827733, -12576250.92916129 4266939.465675562, -12551774.818609402 4239176.767878684, -12525603.771852452 4213005.721121733, -12497841.074055573 4188529.6105698454, -12468596.291903403 4165845.0322492975, -12437984.841190424 4145041.511827122, -12406127.53132756 4126201.151294202, -12373150.088562617 4109398.3049462177, -12339182.65979623 4094699.2859412157, -12304359.298951497 4082162.104591864, -12268817.437924393 4071836.239425257, -12232697.344202857 4063762.441913767, -12196141.567295112 4057972.5756476047, -12159294.376151862 4054489.490583785, -12122301.18980267 4053326.932867784, -12085308.00345348 4054489.490583785, -12048460.81231023 4057972.5756476047, -12011905.035402484 4063762.441913767, -11975784.94168095 4071836.239425257, -11940243.080653844 4082162.104591864, -11905419.719809111 4094699.285941215, -11871452.291042725 4109398.3049462177, -11838474.848277781 4126201.151294202, -11806617.538414918 4145041.5118271224, -11776006.087701939 4165845.032249297, -11746761.305549769 4188529.6105698454, -11718998.607752891 4213005.721121733, -11692827.56099594 4239176.767878684, -11668351.450444052 4266939.465675562, -11645666.872123504 4296184.247827732, -11624863.351701329 4326795.698540711, -11606022.991168408 4358653.008403575, -11589220.144820424 4391630.451168518, -11574521.125815421 4425597.879934905, -11561983.944466071 4460421.240779637, -11551658.079299463 4495963.101806742, -11543584.281787973 4532083.195528277, -11537794.415521812 4568638.972436024, -11534311.330457991 4605486.163579274, -11533148.77274199 4642479.349928465))))'
+            },
+            "url": 'https://sample.com/geoserver/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image%2Fvnd.jpeg-png8&TRANSPARENT=true&LAYERS=workspace%3Agdy_pet_sys&STYLES=&SRS=EPSG%3A4326&CRS=EPSG%3A4326&TILED=false&authkey=9cf6ff4e-2529-40cb-9ff8-f142c550b579&WIDTH=1410&HEIGHT=497&BBOX=17.68798828125%2C-78.2666015625%2C39.52880859375%2C-16.3037109375'
+        };
+        mockAxios.onPost().reply(() => {
+            expect(true).toBeTruthy();
+            done();
+            return [200, {data: {}}, {"content-type": "image/png"}];
+        });
+        const layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wms"
+                options={options}
+                map={map}/>,
+            document.getElementById("container")
+        );
+        expect(layer).toExist();
+        expect(map.getLayers().getLength()).toBe(1);
+    });
+    it('creates a tiled wms layer for openlayers map with long url', (done) => {
+        let options = {
+            "type": "wms",
+            "visibility": true,
+            "singleTile": false,
+            "tiled": true,
+            "maxLengthUrl": 2000,
+            "name": "long:layerName",
+            "group": "groupname",
+            "format": "image/png",
+            "params": {
+                "CQL_FILTER": 'age=93.9 AND (INTERSECTS("the_geom",SRID=3857;Polygon((-11533148.77274199 4642479.349928465, -11534311.330457991 4679472.5362776555, -11537794.415521812 4716319.727420906, -11543584.281787973 4752875.504328652, -11551658.079299463 4788995.598050187, -11561983.944466071 4824537.459077292, -11574521.125815421 4859360.819922024, -11589220.144820424 4893328.248688412, -11606022.991168408 4926305.6914533535, -11624863.351701329 4958163.001316219, -11645666.872123504 4988774.4520291975, -11668351.450444052 5018019.234181368, -11692827.56099594 5045781.931978245, -11718998.60775289 5071952.978735196, -11746761.305549767 5096429.089287084, -11776006.087701939 5119113.667607632, -11806617.538414918 5139917.188029807, -11838474.848277781 5158757.548562728, -11871452.291042725 5175560.394910712, -11905419.719809111 5190259.413915714, -11940243.080653844 5202796.595265065, -11975784.94168095 5213122.460431673, -12011905.035402484 5221196.257943163, -12048460.81231023 5226986.124209325, -12085308.00345348 5230469.209273145, -12122301.18980267 5231631.766989145, -12159294.376151862 5230469.209273145, -12196141.567295112 5226986.124209325, -12232697.344202857 5221196.257943163, -12268817.437924393 5213122.460431673, -12304359.298951497 5202796.595265065, -12339182.65979623 5190259.413915714, -12373150.088562617 5175560.394910712, -12406127.53132756 5158757.548562728, -12437984.841190424 5139917.188029807, -12468596.291903403 5119113.667607632, -12497841.074055575 5096429.089287084, -12525603.771852452 5071952.978735196, -12551774.818609402 5045781.931978245, -12576250.92916129 5018019.234181368, -12598935.507481838 4988774.4520291975, -12619739.027904013 4958163.001316219, -12638579.388436934 4926305.6914533535, -12655382.234784918 4893328.248688412, -12670081.25378992 4859360.819922024, -12682618.43513927 4824537.459077292, -12692944.300305879 4788995.598050187, -12701018.097817369 4752875.504328652, -12706807.96408353 4716319.727420906, -12710291.04914735 4679472.5362776555, -12711453.606863352 4642479.349928465, -12710291.04914735 4605486.163579274, -12706807.96408353 4568638.972436024, -12701018.097817369 4532083.195528277, -12692944.300305879 4495963.101806743, -12682618.43513927 4460421.240779637, -12670081.25378992 4425597.879934905, -12655382.234784918 4391630.4511685185, -12638579.388436934 4358653.008403576, -12619739.027904013 4326795.698540711, -12598935.507481838 4296184.247827733, -12576250.92916129 4266939.465675562, -12551774.818609402 4239176.767878684, -12525603.771852452 4213005.721121733, -12497841.074055573 4188529.6105698454, -12468596.291903403 4165845.0322492975, -12437984.841190424 4145041.511827122, -12406127.53132756 4126201.151294202, -12373150.088562617 4109398.3049462177, -12339182.65979623 4094699.2859412157, -12304359.298951497 4082162.104591864, -12268817.437924393 4071836.239425257, -12232697.344202857 4063762.441913767, -12196141.567295112 4057972.5756476047, -12159294.376151862 4054489.490583785, -12122301.18980267 4053326.932867784, -12085308.00345348 4054489.490583785, -12048460.81231023 4057972.5756476047, -12011905.035402484 4063762.441913767, -11975784.94168095 4071836.239425257, -11940243.080653844 4082162.104591864, -11905419.719809111 4094699.285941215, -11871452.291042725 4109398.3049462177, -11838474.848277781 4126201.151294202, -11806617.538414918 4145041.5118271224, -11776006.087701939 4165845.032249297, -11746761.305549769 4188529.6105698454, -11718998.607752891 4213005.721121733, -11692827.56099594 4239176.767878684, -11668351.450444052 4266939.465675562, -11645666.872123504 4296184.247827732, -11624863.351701329 4326795.698540711, -11606022.991168408 4358653.008403575, -11589220.144820424 4391630.451168518, -11574521.125815421 4425597.879934905, -11561983.944466071 4460421.240779637, -11551658.079299463 4495963.101806742, -11543584.281787973 4532083.195528277, -11537794.415521812 4568638.972436024, -11534311.330457991 4605486.163579274, -11533148.77274199 4642479.349928465))))'
+            },
+            "url": 'https://sample.com/geoserver/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image%2Fvnd.jpeg-png8&TRANSPARENT=true&LAYERS=workspace%3Agdy_pet_sys&STYLES=&SRS=EPSG%3A4326&CRS=EPSG%3A4326&TILED=false&authkey=9cf6ff4e-2529-40cb-9ff8-f142c550b579&WIDTH=1410&HEIGHT=497&BBOX=17.68798828125%2C-78.2666015625%2C39.52880859375%2C-16.3037109375'
+        };
+        mockAxios.onPost().reply(() => {
+            expect(true).toBeTruthy();
+            done();
+            return [200, {data: {}}, {"content-type": "image/png"}];
+        });
+
+        const layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wms"
+                options={options}
+                map={map}/>,
+            document.getElementById("container")
+        );
+        expect(layer).toExist();
+    });
 
     it('test wms vector formats', () => {
         const options = {
@@ -419,10 +484,16 @@ describe('Openlayers layer', () => {
         expect(layer.layer.getType()).toBe('VECTOR_TILE');
         expect(layer.layer.getSource().format_.constructor.name).toBe('GeoJSON');
         setTimeout(() => {
-            const style = layer.layer.getStyle();
-            expect(style).toExist();
-            expect(style.getStroke().getColor()).toBe('#FF0000');
-            expect(style.getFill().getColor()).toBe('rgba(255, 255, 0, 0.5)');
+            try {
+                const style = layer.layer.getStyle();
+                expect(style).toExist();
+                expect(style.getStroke().getColor()).toBe('#FF0000');
+                // currently SLD parser use fillOpacity instead of opacity
+                // and probably this cause wrong parsing of opacity
+                expect(style.getFill().getColor()).toBe('#FFFF00');
+            } catch (e) {
+                done(e);
+            }
             done();
         }, 0);
     });
@@ -612,6 +683,28 @@ describe('Openlayers layer', () => {
         };
         map.getLayers().item(0).getSource().setImageLoadFunction(loadFun);
         map.getLayers().item(0).getSource().refresh();
+    });
+
+    it('test wms custom resolutions', () => {
+        var options = {
+            "type": "wms",
+            "visibility": true,
+            "name": "nurc:Arc_Sample",
+            "group": "Meteo",
+            "format": "image/png",
+            "singleTile": false,
+            "resolutions": [100, 10, 3, 2, 1],
+            "url": "http://sample.server/geoserver/wms"
+        };
+        // create layers
+        var layer = ReactDOM.render(
+            <OpenlayersLayer type="wms"
+                options={options} map={map} />, document.getElementById("container"));
+
+        expect(layer).toExist();
+        // count layers
+        expect(map.getLayers().getLength()).toBe(1);
+        expect(map.getLayers().item(0).getSource().tileGrid.getResolutions().length).toBe(5);
     });
 
     it('creates a wmts layer for openlayers map', () => {
@@ -1746,7 +1839,7 @@ describe('Openlayers layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -1787,7 +1880,7 @@ describe('Openlayers layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -1899,7 +1992,7 @@ describe('Openlayers layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -2027,6 +2120,150 @@ describe('Openlayers layer', () => {
 
         const expectedResolutions = tileMatrix.map(matrix => Number(matrix.ScaleDenominator) * 0.28E-3 / metersPerUnit);
         wmtsLayer.getSource().getTileGrid().getResolutions().map((v, i) => expect(v).toBe(expectedResolutions[i]));
+    });
+    it('Openlayers requires the resolutions to be sorted', () => {
+        const tileMatrix = [{
+            "ows:Identifier": "0",
+            "ScaleDenominator": "17471320.75089746",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "1",
+            "MatrixHeight": "1"
+        },
+        {
+            "ows:Identifier": "2",
+            "ScaleDenominator": "4367830.187724365",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "4",
+            "MatrixHeight": "4"
+        },
+        {
+            "ows:Identifier": "1",
+            "ScaleDenominator": "8735660.37544873",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "2",
+            "MatrixHeight": "2"
+        },
+        {
+            "ows:Identifier": "3",
+            "ScaleDenominator": "2183915.0938621825",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "8",
+            "MatrixHeight": "8"
+        }];
+        const options = {
+            type: 'wmts',
+            visibility: false,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png',
+            requestEncoding: "RESTful",
+            tileMatrixSet: [
+                {
+                    'ows:Identifier': 'EPSG:3857',
+                    'ows:SupportedCRS': 'urn:ogc:def:crs:EPSG::3857',
+                    TileMatrix: tileMatrix
+                }
+            ],
+            url: 'http://sample.server/geoserver/gwc/service/wmts'
+        };
+        ReactDOM.render(<OpenlayersLayer
+            type="wmts"
+            options={options}
+            map={map}
+        />, document.getElementById("container"));
+        const wmtsLayer = map.getLayers().item(0);
+        const metersPerUnit = get("EPSG:3857").getMetersPerUnit();
+        const sortedTileMatrix = [...tileMatrix].sort((a, b) => Number(b.ScaleDenominator) - Number(a.ScaleDenominator));
+        const expectedResolutions = sortedTileMatrix.map(matrix => Number(matrix.ScaleDenominator) * 0.28E-3 / metersPerUnit);
+        const tileGrid = wmtsLayer.getSource().getTileGrid();
+
+        const resolutions = tileGrid.getResolutions();
+        expect(resolutions.length).toBe(expectedResolutions.length);
+        resolutions.map((v, i) => expect(v).toBe(expectedResolutions[i]));
+    });
+    it('limited Ids array should provide the same number resolutions, sizes (that have to match), even with wrong sorting...', () => {
+        const tileMatrix = [{
+            "ows:Identifier": "0",
+            "ScaleDenominator": "17471320.75089746",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "1",
+            "MatrixHeight": "1"
+        },
+        {
+            "ows:Identifier": "2",
+            "ScaleDenominator": "4367830.187724365",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "4",
+            "MatrixHeight": "4"
+        },
+        {
+            "ows:Identifier": "1",
+            "ScaleDenominator": "8735660.37544873",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "2",
+            "MatrixHeight": "2"
+        },
+        {
+            "ows:Identifier": "3",
+            "ScaleDenominator": "2183915.0938621825",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "8",
+            "MatrixHeight": "8"
+        }];
+        const options = {
+            type: 'wmts',
+            visibility: false,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png',
+            requestEncoding: "RESTful",
+            matrixIds: {
+                'EPSG:3857': [{
+                    identifier: '0'
+                }, {
+                    identifier: '1'
+                }]
+            },
+            tileMatrixSet: [
+                {
+                    'ows:Identifier': 'EPSG:3857',
+                    'ows:SupportedCRS': 'urn:ogc:def:crs:EPSG::3857',
+                    TileMatrix: tileMatrix
+                }
+            ],
+            url: 'http://sample.server/geoserver/gwc/service/wmts'
+        };
+        ReactDOM.render(<OpenlayersLayer
+            type="wmts"
+            options={options}
+            map={map}
+        />, document.getElementById("container"));
+        const wmtsLayer = map.getLayers().item(0);
+        const metersPerUnit = get("EPSG:3857").getMetersPerUnit();
+        const sortedTileMatrix = [...tileMatrix].sort((a, b) => Number(b.ScaleDenominator) - Number(a.ScaleDenominator));
+        const expectedResolutions = sortedTileMatrix.map(matrix => Number(matrix.ScaleDenominator) * 0.28E-3 / metersPerUnit);
+        const tileGrid = wmtsLayer.getSource().getTileGrid();
+        const resolutions = tileGrid.getResolutions();
+        expect(resolutions.length).toBe(2);
+        resolutions.map((v, i) => expect(v).toBe(expectedResolutions[i]));
+        // check the matrixids and resolutions match in order
+        tileGrid.getMatrixIds().map((id, idx) => expect(id).toEqual(sortedTileMatrix[idx]["ows:Identifier"]));
     });
     it('test wmts custom crs', () => {
         const tileMatrix = [{
@@ -2342,6 +2579,184 @@ describe('Openlayers layer', () => {
         expect(layer.layer.getSource().format_.constructor.name).toBe('TopoJSON');
 
     });
+    // ******************************
+    // WFS
+    // ******************************
+    const SAMPLE_FEATURE_COLLECTION = {
+        "type": "FeatureCollection",
+        "totalFeatures": 6,
+        "features": [
+            {
+                "type": "Feature",
+                "id": "poi.1",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        -74.0104611,
+                        40.70758763
+                    ]
+                },
+                "properties": {
+                    "NAME": "museam"
+                }
+            }
+        ],
+        "crs": {
+            "type": "name",
+            "properties": {
+                "name": "urn:ogc:def:crs:EPSG::4326"
+            }
+        }
+    };
+    it('render wfs layer', (done) => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0 ).toBeTruthy();
+            return [200, SAMPLE_FEATURE_COLLECTION];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        let layer;
+        map.on('rendercomplete', () => {
+            if (layer.layer.getSource().getFeatures().length > 0) {
+                const f = layer.layer.getSource().getFeatures()[0];
+                expect(f.getGeometry().getCoordinates()[0]).toBe(SAMPLE_FEATURE_COLLECTION.features[0].geometry.coordinates[0]);
+                expect(f.getGeometry().getCoordinates()[1]).toBe(SAMPLE_FEATURE_COLLECTION.features[0].geometry.coordinates[1]);
+                done();
+            }
+        });
+        // first render
+        layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+        expect(layer.layer.getSource()).toExist();
+    });
+    it('render wfs layer with error', () => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0 ).toBeTruthy();
+            return [200, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+            "<ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
+            "  <ows:Exception exceptionCode=\"InvalidParameterValue\" locator=\"srsname\">\n" +
+            "    <ows:ExceptionText>msWFSGetFeature(): WFS server error. Invalid GetFeature Request</ows:ExceptionText>\n" +
+            "  </ows:Exception>\n" +
+            "</ows:ExceptionReport>"];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        const layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+        expect(layer.layer.getSource()).toExist();
+        layer.layer.getSource().on('vectorerror', (e)=>{
+            expect(e).toBeTruthy();
+        });
+    });
+    it('test second render wfs layer', (done) => {
+        let clearCalled = false;
+        mockAxios.onGet().reply(r => {
+            // catch second rendering with params
+            if (r.url.indexOf("CQL_FILTER=INCLUDE") > 0) {
+                expect(clearCalled).toBeTruthy();
+                return [200, SAMPLE_FEATURE_COLLECTION];
+            }
+            // first render returns empty features
+            return [200, { ...SAMPLE_FEATURE_COLLECTION, features: []}];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        // first render
+        let layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+        expect(layer.layer.getSource()).toExist();
+        layer.layer.getSource().on('clear', (a) => {
+            expect(a).toExist();
+            clearCalled = true;
+        });
+        map.on('rendercomplete', () => {
+            if (layer.layer.getSource().getFeatures().length > 0) {
+                const f = layer.layer.getSource().getFeatures()[0];
+                expect(f.getGeometry().getCoordinates()[0]).toBe(SAMPLE_FEATURE_COLLECTION.features[0].geometry.coordinates[0]);
+                expect(f.getGeometry().getCoordinates()[1]).toBe(SAMPLE_FEATURE_COLLECTION.features[0].geometry.coordinates[1]);
+                done();
+            }
+        });
+        // second render with custom params
+        layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options,
+                params: { "CQL_FILTER": "INCLUDE" }
+            }}
+            map={map} />, document.getElementById("container"));
+    });
+    it('render wfs layer with FilterObj', (done) => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0).toBeTruthy();
+            const params = r.url.split("?")[1].split("&");
+            const filterParam = params.filter(p => p.indexOf("CQL_FILTER") === 0)[0];
+            if (filterParam) {
+                const filterValue = decodeURIComponent(filterParam.split("=")[1]);
+                expect(filterValue).toEqual((`("prop2" = 'value2')`));
+                setTimeout( () => done(), 10);
+                return [200, { ...SAMPLE_FEATURE_COLLECTION, features: [] }];
+            }
+            return [200, SAMPLE_FEATURE_COLLECTION];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile',
+            filterObj: {
+                filterFields: [
+                    {
+                        groupId: 1,
+                        attribute: "prop2",
+                        exception: null,
+                        operator: "=",
+                        rowId: "3",
+                        type: "number",
+                        value: "value2"
+                    }],
+                groupFields: [{
+                    id: 1,
+                    index: 0,
+                    logic: "OR"
+                }]
+            }
+        };
+        let layer;
+
+        // first render
+        layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+        expect(layer.layer.getSource()).toExist();
+    });
 
     it('test render a wfs3 layer', () => {
 
@@ -2414,4 +2829,250 @@ describe('Openlayers layer', () => {
         expect(layer.layer.getType()).toBe('VECTOR_TILE');
         expect(layer.layer.getSource().format_.constructor.name).toBe('MVT');
     });
+
+    it('should apply native ol min and max resolution on wms layer', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const options = {
+            type: 'wms',
+            visibility: true,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png8',
+            url: 'http://localhost:8080/geoserver/wms'
+        };
+        let layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wms"
+                options={{
+                    ...options,
+                    minResolution,
+                    maxResolution
+                }}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer).toBeTruthy();
+        expect(layer.layer.getMinResolution()).toBe(minResolution);
+        expect(layer.layer.getMaxResolution()).toBe(maxResolution);
+
+        layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wms"
+                options={options}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer.getMinResolution()).toBe(0);
+        expect(layer.layer.getMaxResolution()).toBe(Infinity);
+    });
+
+    it('should apply native ol min and max resolution on wmts layer', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const options = {
+            type: 'wmts',
+            visibility: true,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png8',
+            url: 'http://localhost:8080/geoserver/gwc/service/wmts',
+            tileMatrixSet: [
+                {
+                    "TileMatrix": [],
+                    "ows:Identifier": "EPSG:900913",
+                    "ows:SupportedCRS": "urn:ogc:def:crs:EPSG::900913"
+                }
+            ]
+        };
+        let layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wmts"
+                options={{
+                    ...options,
+                    minResolution,
+                    maxResolution
+                }}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer).toBeTruthy();
+        expect(layer.layer.getMinResolution()).toBe(minResolution);
+        expect(layer.layer.getMaxResolution()).toBe(maxResolution);
+
+        layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wmts"
+                options={options}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer.getMinResolution()).toBe(0);
+        expect(layer.layer.getMaxResolution()).toBe(Infinity);
+    });
+
+    it('should apply native ol min and max resolution on wfs layer', (done) => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0 ).toBeTruthy();
+            return [200, SAMPLE_FEATURE_COLLECTION];
+        });
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        let layer;
+        map.on('rendercomplete', () => {
+            if (layer.layer.getSource().getFeatures().length > 0) {
+                expect(layer.layer.getMinResolution()).toBe(minResolution);
+                expect(layer.layer.getMaxResolution()).toBe(maxResolution);
+                done();
+            }
+        });
+        // first render
+        layer = ReactDOM.render(<OpenlayersLayer
+            type="wfs"
+            options={{
+                ...options,
+                minResolution,
+                maxResolution
+            }}
+            map={map}
+            resolutions={resolutions}/>, document.getElementById("container"));
+        expect(layer.layer.getSource()).toBeTruthy();
+    });
+
+    it('should apply native ol min and max resolution on vector layer', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const options = {
+            crs: 'EPSG:4326',
+            features: {
+                'type': 'FeatureCollection',
+                'crs': {
+                    'type': 'name',
+                    'properties': {
+                        'name': 'EPSG:4326'
+                    }
+                },
+                'features': [
+                    {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[
+                                [13, 43],
+                                [15, 43],
+                                [15, 44],
+                                [13, 44]
+                            ]]
+                        }
+                    }
+                ]
+            }
+        };
+        let layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="vector"
+                options={{
+                    ...options,
+                    minResolution,
+                    maxResolution
+                }}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer).toBeTruthy();
+        expect(layer.layer.getMinResolution()).toBe(minResolution);
+        expect(layer.layer.getMaxResolution()).toBe(maxResolution);
+
+        layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="vector"
+                options={options}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer.getMinResolution()).toBe(0);
+        expect(layer.layer.getMaxResolution()).toBe(Infinity);
+    });
+
+    it('should apply native ol min and max resolution on osm layer', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const options = {
+            source: 'osm',
+            title: 'Open Street Map',
+            name: 'mapnik',
+            group: 'background'
+        };
+        let layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="osm"
+                options={{
+                    ...options,
+                    minResolution,
+                    maxResolution
+                }}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer).toBeTruthy();
+        expect(layer.layer.getMinResolution()).toBe(minResolution);
+        expect(layer.layer.getMaxResolution()).toBe(maxResolution);
+
+        layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="osm"
+                options={options}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer.getMinResolution()).toBe(0);
+        expect(layer.layer.getMaxResolution()).toBe(Infinity);
+    });
+
+    it('should not apply native ol min and max resolution when disableResolutionLimits is set to true', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        const layer = ReactDOM.render(
+            <OpenlayersLayer
+                type="wms"
+                options={{
+                    type: 'wms',
+                    visibility: true,
+                    name: 'nurc:Arc_Sample',
+                    group: 'Meteo',
+                    format: 'image/png8',
+                    url: 'http://localhost:8080/geoserver/wms',
+                    minResolution,
+                    maxResolution,
+                    disableResolutionLimits: true
+                }}
+                map={map}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer.layer).toBeTruthy();
+        expect(layer.layer.getMinResolution()).toBe(0);
+        expect(layer.layer.getMaxResolution()).toBe(Infinity);
+    });
+
 });

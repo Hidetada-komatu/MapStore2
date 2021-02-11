@@ -5,11 +5,26 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const {createSelector} = require('reselect');
-const { getEditingWidget, dependenciesSelector, getEditorSettings, getWidgetLayer, getFloatingWidgets, availableDependenciesForEditingWidgetSelector} = require('../../selectors/widgets');
-const { showConnectionsSelector } = require('../../selectors/dashboard');
 
-const wizardStateToProps = ( stateProps = {}, dispatchProps = {}, ownProps = {}) => ({
+import { isNil } from 'lodash';
+import { createSelector } from 'reselect';
+
+import { showConnectionsSelector, isDashboardEditing } from '../../selectors/dashboard';
+import { currentLocaleLanguageSelector } from '../../selectors/locale';
+import {
+    isLocalizedLayerStylesEnabledDashboardsSelector,
+    localizedLayerStylesEnvSelector
+} from '../../selectors/localizedLayerStyles';
+import {
+    availableDependenciesForEditingWidgetSelector,
+    dependenciesSelector,
+    getEditingWidget,
+    getEditorSettings,
+    getFloatingWidgets,
+    getWidgetLayer
+} from '../../selectors/widgets';
+
+export const wizardStateToProps = ( stateProps = {}, dispatchProps = {}, ownProps = {}) => ({
     ...ownProps,
     ...stateProps,
     ...dispatchProps,
@@ -21,19 +36,21 @@ const wizardStateToProps = ( stateProps = {}, dispatchProps = {}, ownProps = {})
         ...(stateProps.editorData || {})
     }, ownProps.target)
 });
-const wizardSelector = createSelector(
+export const wizardSelector = createSelector(
     getWidgetLayer,
     getEditingWidget,
     getEditorSettings,
     getFloatingWidgets,
-    (layer, editorData, settings, widgets) => ({
+    isDashboardEditing,
+    (layer, editorData, settings, widgets, dashBoardEditing) => ({
         layer: (editorData && editorData.layer) || layer,
         editorData,
         settings,
-        widgets
+        widgets,
+        dashBoardEditing
     })
 );
-const dashboardSelector = createSelector(
+export const dashboardSelector = createSelector(
     getEditingWidget,
     showConnectionsSelector,
     dependenciesSelector,
@@ -45,10 +62,22 @@ const dashboardSelector = createSelector(
         ...dependencyConnectProps
     }));
 
-module.exports = {
+export const dashboardsLocalizedSelector = createSelector(
+    isLocalizedLayerStylesEnabledDashboardsSelector,
+    currentLocaleLanguageSelector,
+    localizedLayerStylesEnvSelector,
+    (isLocalizedLayerStylesEnabled, language, env) => ({
+        isLocalizedLayerStylesEnabled: !isNil(isLocalizedLayerStylesEnabled),
+        language,
+        env
+    })
+);
+
+export default {
     getWidgetLayer,
     availableDependenciesForEditingWidgetSelector,
     dashboardSelector,
+    dashboardsLocalizedSelector,
     wizardStateToProps,
     wizardSelector
 };

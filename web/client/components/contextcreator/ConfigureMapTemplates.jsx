@@ -11,7 +11,7 @@ import {get, isString, isObject} from 'lodash';
 import {Glyphicon} from 'react-bootstrap';
 import jsonlint from 'jsonlint-mod';
 
-import FileFormatUtils from '../../utils/FileFormatUtils';
+import {formatToGlyph, formatToText} from '../../utils/FileFormatUtils';
 import Transfer from '../misc/transfer/Transfer';
 import ConfirmDialog from '../misc/ConfirmDialog';
 import Message from '../I18N/Message';
@@ -39,8 +39,8 @@ const templateToItem = (onEditTemplate, onDelete, template) => ({
         </div>,
     infoExtra:
         template.format && <div className="configure-map-templates-formaticon">
-            <Glyphicon glyph={FileFormatUtils.formatToGlyph[template.format]}/>
-            <span>{FileFormatUtils.formatToText[template.format]}</span>
+            <Glyphicon glyph={formatToGlyph[template.format]}/>
+            <span>{formatToText[template.format]}</span>
         </div>
 });
 
@@ -92,6 +92,7 @@ const onTemplateDrop = (setParsedTemplate, setFileDropStatus, onError, files) =>
 };
 
 export default ({
+    user,
     loading,
     loadFlags,
     mapTemplates = [],
@@ -173,8 +174,10 @@ export default ({
             onSelect={items => setSelectedTemplates(pickIds(items))}
             onTransfer={(items, direction) => changeTemplatesKey(pickIds(items), 'enabled', direction === 'right')}/>
         <SaveDialog
+            user={user}
             loading={loading && (loadFlags.templateSaving || loadFlags.templateLoading)}
             resource={editedTemplate}
+            isNewResource={!editedTemplate}
             clickOutEnabled={false}
             category="TEMPLATE"
             show={showUploadDialog}

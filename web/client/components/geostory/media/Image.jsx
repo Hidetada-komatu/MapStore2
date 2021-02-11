@@ -6,18 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 import React, { Component } from 'react';
-import { find } from 'lodash';
-import { createSelector } from 'reselect';
 import PropTypes from 'prop-types';
 import Lightbox from 'react-image-lightbox';
 import objectFitImages from 'object-fit-images';
-import { connect } from "react-redux";
-import { compose, withState, withProps, branch } from 'recompose';
-
-import emptyState from '../../misc/enhancers/emptyState';
-import { resourcesSelector } from '../../../selectors/geostory';
-import { SectionTypes } from '../../../utils/GeoStoryUtils';
-
+import { compose, withState } from 'recompose';
 
 /**
  * Image media component
@@ -26,6 +18,9 @@ import { SectionTypes } from '../../../utils/GeoStoryUtils';
  * @prop {string} src source of the image
  * @prop {string} fit one of 'cover' or 'contain'
  * @prop {boolean} enableFullscreen enable fullscreen preview with pan and zoom options
+ * @prop {string} description description of media resource
+ * @prop {string} caption caption of current content
+ * @prop {boolean} showCaption display/hide caption
  * @prop {element} loaderComponent render loader component
  * @prop {element} errorComponent render error component
  */
@@ -36,7 +31,7 @@ class Image extends Component {
         id: PropTypes.string,
         fit: PropTypes.string,
         description: PropTypes.string,
-        descriptionEnabled: PropTypes.bool,
+        showCaption: PropTypes.bool,
         credits: PropTypes.string,
         altText: PropTypes.string,
         enableFullscreen: PropTypes.bool,
@@ -45,7 +40,9 @@ class Image extends Component {
         onChangeStatus: PropTypes.func,
         status: PropTypes.string,
         loaderComponent: PropTypes.element,
-        errorComponent: PropTypes.element
+        errorComponent: PropTypes.element,
+        caption: PropTypes.string,
+        loaderStyle: PropTypes.object
     };
 
     componentDidMount() {
@@ -67,12 +64,15 @@ class Image extends Component {
             fullscreen,
             onClick,
             description,
-            descriptionEnabled = true,
-            credits
+            showCaption,
+            caption = description,
+            credits,
+            loaderStyle
         } = this.props;
 
         const LoaderComponent = this.props.loaderComponent;
         const ErrorComponent = this.props.errorComponent;
+
         return (
             <div
                 id={id}
@@ -89,16 +89,16 @@ class Image extends Component {
                         fontFamily: `object-fit: ${fit}`,
                         cursor: enableFullscreen ? 'pointer' : 'default'
                     }}/>}
-                {(src && !this.props.status) && LoaderComponent && <LoaderComponent />}
+                {(src && !this.props.status) && LoaderComponent && <LoaderComponent style={{...loaderStyle}} />}
                 {(this.props.status === 'error') && ErrorComponent && <ErrorComponent />}
                 {credits && <div className="ms-media-credits">
                     <small>
                         {credits}
                     </small>
                 </div>}
-                {descriptionEnabled && description && <div className="ms-media-description">
+                {showCaption && caption && <div className="ms-media-caption">
                     <small>
-                        {description}
+                        {caption}
                     </small>
                 </div>}
                 {enableFullscreen && fullscreen ?
@@ -112,24 +112,6 @@ class Image extends Component {
 }
 
 export default compose(
-    branch(
-        ({resourceId}) => resourceId,
-        compose(
-            connect(createSelector(resourcesSelector, (resources) => ({resources}))),
-            withProps(
-                ({ resources, resourceId: id }) => {
-                    const resource = find(resources, { id }) || {};
-                    return resource.data;
-                }
-            )
-        ),
-        emptyState(
-            ({src = "", sectionType} = {}) => !src && (sectionType !== SectionTypes.TITLE && sectionType !== SectionTypes.IMMERSIVE),
-            () => ({
-                glyph: "picture"
-            })
-        )
-    ),
     withState('fullscreen', 'onClick', false),
     withState('status', 'onChangeStatus', '')
 )(Image);

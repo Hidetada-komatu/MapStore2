@@ -5,13 +5,15 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const axios = require('../libs/ajax');
 
-const _ = require('lodash');
+import urlUtil from 'url';
 
-const urlUtil = require('url');
-const ConfigUtils = require('../utils/ConfigUtils');
-const assign = require('object-assign');
+import _ from 'lodash';
+import assign from 'object-assign';
+
+import axios from '../libs/ajax';
+import { cleanDuplicatedQuestionMarks } from '../utils/ConfigUtils';
+import { extractCrsFromURN, makeBboxFromOWS, makeNumericEPSG } from '../utils/CoordinatesUtils';
 
 const parseUrl = (url) => {
     const parsed = urlUtil.parse(url, true);
@@ -51,7 +53,7 @@ var Api = {
                                         * So we place references as they are.
                                         */
                                         if (elName === "references" && dcel.value) {
-                                            let urlString = dcel.value.content && ConfigUtils.cleanDuplicatedQuestionMarks(dcel.value.content[0]) || dcel.value.content || dcel.value;
+                                            let urlString = dcel.value.content && cleanDuplicatedQuestionMarks(dcel.value.content[0]) || dcel.value.content || dcel.value;
                                             finalEl = {
                                                 value: urlString,
                                                 scheme: dcel.value.scheme
@@ -123,23 +125,44 @@ var Api = {
                                                 el = rawRec.boundingBox;
                                             }
                                             if (el && el.value) {
+                                                // EPSG:4326 is defined as (lat,lon) but mapping frameworks usually expect (lon,lat) as it is
+                                                // more natural (because (lon,lat) is basically (x,y))
+                                                // so internally EPSG:4326 is assumed to be (lon,lat) but when we import from external services
+                                                // we assume that EPSG:4326 is (lat,lon) and CRS84 is (lon,lat) as by their definition
+                                                // after conversion to (lon,lat) we set crs to EPSG:4326
+
+                                                const crsValue = el.value?.crs ?? '';
+                                                const urn = crsValue.match(/[\w-]*:[\w-]*:[\w-]*:[\w-]*:[\w-]*:[^:]*:(([\w-]+\s[\w-]+)|[\w-]*)/)?.[0];
+                                                const epsg = makeNumericEPSG(crsValue.match(/EPSG:[0-9]+/)?.[0]);
+
                                                 let lc = el.value.lowerCorner;
                                                 let uc = el.value.upperCorner;
-                                                bbox = [lc[1], lc[0], uc[1], uc[0]];
-                                                // TODO parse the extent's crs
-                                                let crsCode = el.value && el.value.crs && _.last(el.value.crs.split(":"));
-                                                if (crsCode === "WGS 1984" || crsCode === "WGS84") {
-                                                    crs = "EPSG:4326";
-                                                } else if (crsCode) {
-                                                    // TODO check is valid EPSG code
-                                                    crs = "EPSG:" + crsCode;
+
+                                                const extractedCrs = epsg || (extractCrsFromURN(urn) || _.last(crsValue.split(':')));
+
+                                                if (!extractedCrs) {
+                                                    crs = 'EPSG:4326';
+                                                } else if (extractedCrs.slice(0, 5) === 'EPSG:') {
+                                                    crs = makeNumericEPSG(extractedCrs);
+                                                    if (!crs) {
+                                                        throw new Error(`No suitable EPSG numeric conversion found for "${extractedCrs}"`);
+                                                    }
                                                 } else {
-                                                    crs = "EPSG:4326";
+                                                    crs = makeNumericEPSG(`EPSG:${extractedCrs}`);
+                                                    if (!crs) {
+                                                        throw new Error(`No suitable EPSG numeric conversion found for "${extractedCrs}"`);
+                                                    }
                                                 }
+
+                                                if (crs === 'EPSG:4326' && extractedCrs !== 'CRS84' && extractedCrs !== 'OGC:CRS84') {
+                                                    lc = [lc[1], lc[0]];
+                                                    uc = [uc[1], uc[0]];
+                                                }
+                                                bbox = makeBboxFromOWS(lc, uc);
                                             }
                                             obj.boundingBox = {
                                                 extent: bbox,
-                                                crs: crs
+                                                crs
                                             };
                                         }
                                         let dcElement = rawRec.dcElement;
@@ -156,7 +179,7 @@ var Api = {
                                                 * So we place references as they are.
                                                 */
                                                 if (elName === "references" && dcel.value) {
-                                                    let urlString = dcel.value.content && ConfigUtils.cleanDuplicatedQuestionMarks(dcel.value.content[0]) || dcel.value.content || dcel.value;
+                                                    let urlString = dcel.value.content && cleanDuplicatedQuestionMarks(dcel.value.content[0]) || dcel.value.content || dcel.value;
                                                     finalEl = {
                                                         value: urlString,
                                                         scheme: dcel.value.scheme
@@ -220,4 +243,4 @@ var Api = {
     reset: () => {}
 };
 
-module.exports = Api;
+export default Api;

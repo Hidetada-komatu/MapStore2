@@ -29,6 +29,7 @@ import {
     UPDATE,
     UPDATE_CURRENT_PAGE,
     UPDATE_SETTING,
+    UPDATE_MEDIA_EDITOR_SETTINGS,
     add,
     clearSaveError,
     editResource,
@@ -48,7 +49,9 @@ import {
     update,
     updateCurrentPage,
     updateSetting,
-    removeResource, REMOVE_RESOURCE
+    removeResource, REMOVE_RESOURCE,
+    updateUrlOnScroll, SET_UPDATE_URL_SCROLL,
+    updateMediaEditorSettings
 } from '../geostory';
 
 describe('test geostory action creators', () => {
@@ -206,5 +209,38 @@ describe('test geostory action creators', () => {
         expect(action.id).toBe(id);
         expect(action.mediaType).toBe(mediaType);
     });
-
+    it('updateUrlOnScroll', () => {
+        const value = true;
+        const action = updateUrlOnScroll(value);
+        expect(action.type).toBe(SET_UPDATE_URL_SCROLL);
+        expect(action.value).toBe(value);
+    });
+    it('updateMediaEditorSettings', () => {
+        const mediaEditorSettings = {
+            sourceId: 'geostory',
+            mediaTypes: {
+                image: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                },
+                video: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                },
+                map: {
+                    defaultSource: 'geostory',
+                    sources: ['geostory']
+                }
+            },
+            sources: {
+                geostory: {
+                    name: 'Current story',
+                    type: 'geostory'
+                }
+            }
+        };
+        const action = updateMediaEditorSettings(mediaEditorSettings);
+        expect(action.type).toBe(UPDATE_MEDIA_EDITOR_SETTINGS);
+        expect(action.mediaEditorSettings).toBe(mediaEditorSettings);
+    });
 });

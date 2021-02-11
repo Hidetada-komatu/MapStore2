@@ -5,9 +5,10 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const PropTypes = require('prop-types');
-const { isString } = require('lodash');
+import React from 'react';
+
+import PropTypes from 'prop-types';
+import { isString } from 'lodash';
 
 /**
  * Base map component that renders a map.
@@ -41,7 +42,8 @@ class BaseMap extends React.Component {
         projectionDefs: PropTypes.array,
         plugins: PropTypes.any,
         tools: PropTypes.array,
-        getLayerProps: PropTypes.func
+        getLayerProps: PropTypes.func,
+        env: PropTypes.array
     };
 
     static defaultProps = {
@@ -57,7 +59,8 @@ class BaseMap extends React.Component {
             onMouseMove: () => {},
             onLayerLoading: () => {},
             onLayerError: () => {}
-        }
+        },
+        env: []
     };
 
     getTool = (tool) => {
@@ -87,6 +90,7 @@ class BaseMap extends React.Component {
                     position={index}
                     key={layer.id || layer.name}
                     options={layer}
+                    env={layer.localizedLayerStyles ? this.props.env : []}
                 >
                     {this.renderLayerContent(layer, projection)}
                 </Layer>
@@ -129,7 +133,7 @@ class BaseMap extends React.Component {
         const {plugins} = this.props;
         const {Map} = plugins;
         const projection = this.props.map && this.props.map.projection || "EPSG:3857";
-        if (this.props.map) {
+        if (this.props.map && Map) {
             return (
                 <Map
                     projectionDefs={this.props.projectionDefs}
@@ -147,6 +151,7 @@ class BaseMap extends React.Component {
                 >
                     {this.renderLayers()}
                     {this.renderTools()}
+                    {this.props.children}
                 </Map>
             );
         }
@@ -155,4 +160,4 @@ class BaseMap extends React.Component {
 }
 
 
-module.exports = BaseMap;
+export default BaseMap;

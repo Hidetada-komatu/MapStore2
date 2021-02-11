@@ -6,19 +6,31 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const {connect} = require('react-redux');
+import React from 'react';
 
-const Message = require('./locale/Message');
+import { connect } from 'react-redux';
+import Message from './locale/Message';
 
-const { onError, setLoading, setLayers, onSelectLayer, onLayerAdded, onLayerSkipped, updateBBox, onSuccess} = require('../actions/mapimport');
-const {zoomToExtent} = require('../actions/map');
-const {addLayer} = require('../actions/layers');
-const {toggleControl} = require('../actions/controls');
+import {
+    onError,
+    setLoading,
+    setLayers,
+    onSelectLayer,
+    onLayerAdded,
+    onLayerSkipped,
+    updateBBox,
+    onSuccess
+} from '../actions/mapimport';
 
-const assign = require('object-assign');
-const {Glyphicon} = require('react-bootstrap');
-const {mapTypeSelector} = require('../selectors/maptype');
+import { zoomToExtent } from '../actions/map';
+import { addLayer } from '../actions/layers';
+import { loadAnnotations } from '../actions/annotations';
+import { annotationsLayerSelector } from '../selectors/annotations';
+import { toggleControl } from '../actions/controls';
+import assign from 'object-assign';
+import { Glyphicon } from 'react-bootstrap';
+import { mapTypeSelector } from '../selectors/maptype';
+
 /**
  * Allows the user to import a file into current map.
  * Supported formats are:
@@ -32,11 +44,12 @@ const {mapTypeSelector} = require('../selectors/maptype');
  *     - GPX
  * @memberof plugins
  * @name MapImport
+ * @class
  */
-module.exports = {
+export default {
     MapImportPlugin: assign({loadPlugin: (resolve) => {
         require.ensure(['./import/Import'], () => {
-            const Import = require('./import/Import');
+            const Import = require('./import/Import').default;
 
             const ImportPlugin = connect((state) => (
                 {
@@ -47,7 +60,8 @@ module.exports = {
                     success: state.mapimport && state.mapimport.success || null,
                     errors: state.mapimport && state.mapimport.errors || null,
                     shapeStyle: state.style || {},
-                    mapType: mapTypeSelector(state)
+                    mapType: mapTypeSelector(state),
+                    annotationsLayer: annotationsLayerSelector(state)
                 }
             ), {
                 setLayers,
@@ -57,6 +71,7 @@ module.exports = {
                 onError,
                 onSuccess,
                 addLayer,
+                loadAnnotations,
                 onZoomSelected: zoomToExtent,
                 updateBBox,
                 setLoading,
@@ -78,7 +93,7 @@ module.exports = {
         }
     }),
     reducers: {
-        mapimport: require('../reducers/mapimport'),
-        style: require('../reducers/style')
+        mapimport: require('../reducers/mapimport').default,
+        style: require('../reducers/style').default
     }
 };

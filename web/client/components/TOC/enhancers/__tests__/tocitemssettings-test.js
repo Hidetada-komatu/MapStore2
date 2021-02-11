@@ -5,11 +5,12 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const expect = require('expect');
-const ReactDOM = require('react-dom');
-const {settingsLifecycle} = require('../tocItemsSettings');
-const TestUtils = require('react-dom/test-utils');
+import React from 'react';
+
+import expect from 'expect';
+import ReactDOM from 'react-dom';
+import { settingsLifecycle } from '../tocItemsSettings';
+import TestUtils from 'react-dom/test-utils';
 
 describe("test updateSettingsLifecycle", () => {
     beforeEach((done) => {
@@ -125,6 +126,7 @@ describe("test updateSettingsLifecycle", () => {
         const Component = settingsLifecycle(() => <div></div>);
 
         ReactDOM.render(<Component
+            initialActiveTab="display"
             settings={{expanded: false}}
             onUpdateOriginalSettings={testHandlers.onUpdateOriginalSettings}
             onUpdateInitialSettings={testHandlers.onUpdateInitialSettings}
@@ -132,6 +134,7 @@ describe("test updateSettingsLifecycle", () => {
         />, document.getElementById("container"));
 
         ReactDOM.render(<Component
+            initialActiveTab="display"
             element={{type: 'wms', description: 'description'}}
             settings={{expanded: true}}
             onUpdateOriginalSettings={testHandlers.onUpdateOriginalSettings}
@@ -142,7 +145,7 @@ describe("test updateSettingsLifecycle", () => {
         expect(spyOnUpdateOriginalSettings).toHaveBeenCalled();
         expect(spyOnUpdateInitialSettings).toHaveBeenCalled();
         expect(spyOnSetTab).toHaveBeenCalled();
-        expect(spyOnSetTab).toHaveBeenCalledWith('general');
+        expect(spyOnSetTab).toHaveBeenCalledWith("display");
     });
 
     it('test component on save', () => {

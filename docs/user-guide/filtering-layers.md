@@ -61,7 +61,15 @@ Also this filter is applied through the [Query Panel](filtering-layers.md#query-
 
 ### Quick Filter
 
-This filter, applicable directly in the [Attribute Table](attributes-table.md) just below the field names, can be also used in combination with other filter applied:
+The user can perform two type of quick filters:
+
+* Filter by **attributes**
+
+* Filter by **clicked point in the map**
+
+#### Quick Filter by attributes
+
+This filter is available for each colum in the [Attribute Table](attributes-table.md) just below the field names and it can be also used in combination with other filter applied:
 
 <img src="../img/filtering-layers/filtered_quick_filter.gif" class="ms-docimage"/>
 
@@ -89,7 +97,24 @@ In order to filter a numerical filed matching the records *greater than* or *equ
 
 <img src="../img/filtering-layers/attribute-table-quick-filter-3.jpg" class="ms-docimage"/>
 
-The *Quick Filter* remains active as long as the [Attribute Table](attributes-table.md) is open but, unlike the *Advanced Search*, closing the [Attribute Table](attributes-table.md) it will not reappear anymore if the [Attribute Table](attributes-table.md) is re-opened in a second time.
+#### Quick Filter by map interaction
+
+It is possible to filter records in the [Attribute Table](attributes-table.md) by clicking on the map or doing a selection directly in a map of multiple features. The user can activate the  **Filter on the map** <img src="../img/button/filter_geometry_button.jpg" class="ms-docbutton"/> button (once clicked the button turns blue) and then:
+
+* Click on the map over the features he wants to select
+
+* Add multiple features to the selection by pressing Ctrl and clicking again over other features in map 
+
+<img src="../img/filtering-layers/filter_geometry.gif" class="ms-docimage"/>
+
+* Add multiple features to the selection by pressing Ctrl + Alt and drawing a selection box in map
+
+ <img src="../img/filtering-layers/filter_geometries.gif" class="ms-docimage"/>
+
+The list of records in the *Attribute Table* will be automatically filtered according to such user selection and then the user can disable the geometry filter through the **Remove filter** <img src="../img/button/remove_filter_geometry.jpg" class="ms-docbutton"/> button.
+
+!!! note
+    The *Quick Filter* remains active as long as the [Attribute Table](attributes-table.md) is open but, unlike the *Advanced Search*, closing the [Attribute Table](attributes-table.md) it will not reappear anymore if the [Attribute Table](attributes-table.md) is re-opened in a second time.
 
 ## Query Panel
 
@@ -106,11 +131,11 @@ This tool is used to define advanced filters in [MapStore](https://mapstore.geo-
 ### Attribute filter
 
 This filter allows to set one or more conditions referred to the [Attribute Table](attributes-table.md) fields. <br>
-First of all it is possible to choose if the filter will match: 
+First of all it is possible to choose if the filter will match:
 
 * **Any** conditions
 
-* **All** conditions 
+* **All** conditions
 
 * **None** conditions
 
@@ -122,6 +147,9 @@ A condition can be set by selecting a value for each of the three input boxes:
 * In the second input box it is possible to choose the operation to perform (selecting a text field can be **=**, **like**, **ilike** or **isNull**, selecting a numerical field, can be **=**, **>**, **<**, **>=**, **<=**, **<>** or **><**)
 
 * The third input box (in case of fields of type String) provides a paginated list of available field values already present in the layer's dataset (a GeoServer WPS process is used for this). In case of numeric fields the user can simply type a value to use for the filter.
+
+!!! Note
+    the "paginated list of available field values" above is available only if the server provides the WPS process `gs:PagedUnique`
 
 A simple *Attribute Filter* applied for a numerical field can be, for example:
 
@@ -145,7 +173,7 @@ Once this filter is set, it is always possible to edit the coordinates and the d
 
 ### Layer filter
 
-This tool allows to set [cross-layer filters](https://docs.geoserver.org/stable/en/user/extensions/querylayer/index.html) for a layer by using another layer or even the same one. 
+This tool allows to set [cross-layer filters](https://docs.geoserver.org/stable/en/user/extensions/querylayer/index.html) for a layer by using another layer or even the same one.
 
 !!!warning
     This filter tool requires the [Query Layer plugin](https://docs.geoserver.org/stable/en/user/extensions/querylayer/index.html#installing-the-querylayer-module) installed in GeoServer
@@ -154,7 +182,7 @@ In order to set up a cross-layer filter the options below are required:
 
 * *Target layer* (between those present in the [TOC](toc.md))
 
-* *Operation* to be chosen between **Intersects**, **Is contained** or **Contains** 
+* *Operation* to be chosen between **Intersects**, **Is contained** or **Contains**
 
 * Optionally some *Conditions* (see [Attribute filter](filtering-layers.md#attribute-filter))
 
@@ -165,3 +193,4 @@ In order to better understand this type of filter, let's make an example. We sup
 In particular, if our goal is to take a look at the Italian Regions that contain the Unesco sites with *serial code=1*, the operations to perform can be the following:
 
 <img src="../img/filtering-layers/layer_filter.gif" class="ms-docimage"/>
+

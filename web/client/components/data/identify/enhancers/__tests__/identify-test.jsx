@@ -5,11 +5,13 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const expect = require('expect');
-const ReactDOM = require('react-dom');
-const {identifyLifecycle} = require('../identify');
-const TestUtils = require('react-dom/test-utils');
+
+import expect from 'expect';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import TestUtils from 'react-dom/test-utils';
+
+import {identifyLifecycle} from '../identify';
 
 describe("test identify enhancers", () => {
     beforeEach((done) => {
@@ -70,19 +72,16 @@ describe("test identify enhancers", () => {
         const Component = identifyLifecycle(({onClose = () => {}}) => <div id="test-component" onClick={() => onClose()}></div>);
         const testHandlers = {
             closeIdentify: () => {},
-            purgeResults: () => {},
-            hideMarker: () => {}
+            purgeResults: () => {}
         };
         const spyCloseIdentify = expect.spyOn(testHandlers, 'closeIdentify');
         const spyPurgeResults = expect.spyOn(testHandlers, 'purgeResults');
-        const spyHideMarker = expect.spyOn(testHandlers, 'hideMarker');
         ReactDOM.render(
             <Component
                 enabled
                 responses={[{}]}
                 closeIdentify={testHandlers.closeIdentify}
-                purgeResults={testHandlers.purgeResults}
-                hideMarker={testHandlers.hideMarker}/>,
+                purgeResults={testHandlers.purgeResults}/>,
             document.getElementById("container")
         );
 
@@ -90,7 +89,6 @@ describe("test identify enhancers", () => {
         TestUtils.Simulate.click(testComponent);
         expect(spyCloseIdentify).toHaveBeenCalled();
         expect(spyPurgeResults).toHaveBeenCalled();
-        expect(spyHideMarker).toHaveBeenCalled();
     });
     it("test reset on unmount", () => {
         const Component = identifyLifecycle(({ onClose = () => { } }) => <div id="test-component" onClick={() => onClose()}></div>);

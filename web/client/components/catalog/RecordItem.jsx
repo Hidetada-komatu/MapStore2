@@ -8,7 +8,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import {isObject, head, isArray, trim } from 'lodash';
-import {Image, Button as ButtonRB, Glyphicon} from 'react-bootstrap';
+import {Image, Glyphicon} from 'react-bootstrap';
 
 import {
     buildSRSMap,
@@ -16,17 +16,19 @@ import {
     extractOGCServicesReferences,
     esriToLayer,
     getRecordLinks,
-    recordToLayer
+    recordToLayer,
+    wfsToLayer
 } from '../../utils/CatalogUtils';
-import CoordinatesUtils from '../../utils/CoordinatesUtils';
+import {isAllowedSRS} from '../../utils/CoordinatesUtils';
 import HtmlRenderer from '../misc/HtmlRenderer';
 import {parseCustomTemplate} from '../../utils/TemplateUtils';
-import LocaleUtils from '../../utils/LocaleUtils';
+import {getMessageById} from '../../utils/LocaleUtils';
 import Message from '../I18N/Message';
 import SharingLinks from './SharingLinks';
 import SideCard from '../misc/cardgrids/SideCard';
 import Toolbar from '../misc/toolbar/Toolbar';
 import tooltip from '../misc/enhancers/tooltip';
+import ButtonRB from '../misc/Button';
 const Button = tooltip(ButtonRB);
 import AddTMS from './buttons/AddTMS';
 import AddTileProvider from './buttons/AddTileProvider';
@@ -101,7 +103,7 @@ class RecordItem extends React.Component {
     };
 
     componentDidMount() {
-        const notAvailable = LocaleUtils.getMessageById(this.context.messages, "catalog.notAvailable");
+        const notAvailable = getMessageById(this.context.messages, "catalog.notAvailable");
         const record = this.props.record;
         this.setState({visibleExpand: !this.props.hideExpand &&
             (
@@ -136,7 +138,7 @@ class RecordItem extends React.Component {
             return null;
         }
         // let's extract the references we need
-        const {wms, wmts, tms} = extractOGCServicesReferences(record);
+        const {wms, wmts, tms, wfs}  = extractOGCServicesReferences(record);
         // let's extract the esri
         const {esri} = extractEsriReferences(record);
         const background = record && record.background;
@@ -210,6 +212,19 @@ class RecordItem extends React.Component {
                 </AddTMS>
             );
         }
+        if ( wfs ) {
+            buttons.push(<Button
+                tooltipId="catalog.addToMap"
+                key="addWFSLayer"
+                className="square-button-md"
+                bsStyle="primary"
+                bsSize={this.props.buttonSize}
+                onClick={() => {
+                    this.addLayer(wfsToLayer(this.props.record, this.props.layerBaseConfig));
+                }}>
+                <Glyphicon glyph="plus" />
+            </Button>);
+        }
         if (tileProvider) {
             buttons.push(
                 <AddTileProvider
@@ -242,7 +257,7 @@ class RecordItem extends React.Component {
         if (!record) {
             return null;
         }
-        const notAvailable = LocaleUtils.getMessageById(this.context.messages, "catalog.notAvailable");
+        const notAvailable = getMessageById(this.context.messages, "catalog.notAvailable");
         return this.state.fullText && record.metadataTemplate
             ? (<div className="catalog-metadata ql-editor">
                 <HtmlRenderer html={parseCustomTemplate(record.metadataTemplate, record.metadata, (attribute) => `${trim(attribute.substring(2, attribute.length - 1))} ${notAvailable}`)}/>
@@ -252,7 +267,7 @@ class RecordItem extends React.Component {
 
     render() {
         const record = this.props.record;
-        const {wms, wmts, tms} = extractOGCServicesReferences(record);
+        const { wms, wmts, tms, wfs } = extractOGCServicesReferences(record);
         const {esri} = extractEsriReferences(record);
         const tileProvider = record && record.type === "tileprovider" && record.provider;
         const background = record && record.background;
@@ -268,13 +283,13 @@ class RecordItem extends React.Component {
                     this.renderThumb(record && record.thumbnail ||
                         background && defaultBackgroundThumbs[background.source][background.name], record)}
                 title={record && this.getTitle(record.title)}
-                description={<div className ref={sideCardDesc => {
+                description={<span><div className ref={sideCardDesc => {
                     this.sideCardDesc = sideCardDesc;
-                }}>{this.renderDescription(record)}</div>}
+                }}>{this.renderDescription(record)}</div></span>}
                 caption={
                     <div>
                         {!this.props.hideIdentifier && <div className="identifier">{record && record.identifier}</div>}
-                        <div>{!wms && !wmts && !esri && !background && !tms && !tileProvider && <small className="text-danger"><Message msgId="catalog.missingReference"/></small>}</div>
+                        <div>{!wms && !wmts && !esri && !background && !tms && !tileProvider && !wfs && <small className="text-danger"><Message msgId="catalog.missingReference"/></small>}</div>
                         {!this.props.hideExpand &&
                                 <div
                                     className="ms-ruler"
@@ -325,10 +340,12 @@ class RecordItem extends React.Component {
 
     makeLayer = (type, ogcReferences, formats = [this.props.defaultFormat]) => {
         const allowedSRS = buildSRSMap(ogcReferences.SRS);
-        if (ogcReferences.SRS.length > 0 && !CoordinatesUtils.isAllowedSRS(this.props.crs, allowedSRS)) {
+        if (ogcReferences.SRS.length > 0 && !isAllowedSRS(this.props.crs, allowedSRS)) {
             this.props.onError('catalog.srs_not_allowed');
             return null;
         }
+
+        const localizedLayerStyles = this.props.service && this.props.service.localizedLayerStyles;
 
         return recordToLayer(
             this.props.record,
@@ -354,7 +371,8 @@ class RecordItem extends React.Component {
                         )
                     })
             },
-            this.props.layerBaseConfig
+            this.props.layerBaseConfig,
+            localizedLayerStyles
         );
     }
 

@@ -40,7 +40,13 @@ export default ({
     update = () => {},
     remove = () => {},
     bubblingTextEditing = () => {},
-    expandable
+    expandable,
+    mediaViewer,
+    contentToolbar,
+    sections = [],
+    sectionType,
+    overrideTools,
+    storyFonts
 }) => (
     <Contents
         className="ms-column-contents"
@@ -55,15 +61,21 @@ export default ({
         viewWidth={viewWidth}
         viewHeight={viewHeight}
         bubblingTextEditing={bubblingTextEditing}
+        sectionType={sectionType}
         contentProps={{
-            expandable
+            expandable,
+            mediaViewer,
+            contentToolbar
         }}
+        sections={sections}
+        storyFonts={storyFonts}
         tools={{
             [ContentTypes.TEXT]: ['remove'],
-            [MediaTypes.IMAGE]: ['editMedia', size(), 'align', 'remove'],
-            [MediaTypes.MAP]: ['editMedia', 'editMap', size(true), 'remove'],
-            [MediaTypes.VIDEO]: ['editMedia', 'remove'], // TODO change this list for video
-            [ContentTypes.WEBPAGE]: ['editURL', size(true), 'remove']
+            [MediaTypes.IMAGE]: ['editMedia', size(), 'showCaption', 'remove'],
+            [MediaTypes.MAP]: ['editMedia', 'editMap', size(true), 'showCaption', 'remove'],
+            [ContentTypes.WEBPAGE]: ['editURL', size(true), 'remove'],
+            [MediaTypes.VIDEO]: ['editMedia', 'muted', 'autoplay', 'loop', 'showCaption', 'remove'],
+            ...overrideTools
         }}
         addButtons={[{
             glyph: 'sheet',

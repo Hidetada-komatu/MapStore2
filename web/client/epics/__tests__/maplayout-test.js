@@ -6,15 +6,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const expect = require('expect');
+import expect from 'expect';
 
-const { toggleControl, setControlProperty, setControlProperties } = require('../../actions/controls');
-const {UPDATE_MAP_LAYOUT} = require('../../actions/maplayout');
-const {closeIdentify, purgeMapInfoResults, noQueryableLayers} = require('../../actions/mapInfo');
-
-const {updateMapLayoutEpic} = require('../maplayout');
-const {testEpic, addTimeoutEpic, TEST_TIMEOUT} = require('./epicTestUtils');
-const ConfigUtils = require('../../utils/ConfigUtils');
+import { toggleControl, setControlProperty, setControlProperties } from '../../actions/controls';
+import { UPDATE_MAP_LAYOUT } from '../../actions/maplayout';
+import { closeIdentify, purgeMapInfoResults, noQueryableLayers } from '../../actions/mapInfo';
+import { updateMapLayoutEpic } from '../maplayout';
+import { testEpic, addTimeoutEpic, TEST_TIMEOUT } from './epicTestUtils';
+import ConfigUtils from '../../utils/ConfigUtils';
 
 describe('map layout epics', () => {
     afterEach(() => {
@@ -27,9 +26,9 @@ describe('map layout epics', () => {
                 actions.map((action) => {
                     expect(action.type).toBe(UPDATE_MAP_LAYOUT);
                     expect(action.layout).toEqual({ left: 600, right: 658, bottom: 30, transform: 'none', height: 'calc(100% - 30px)', boundingMapRect: {
+                        bottom: 30,
                         left: 600,
-                        right: 658,
-                        bottom: 30
+                        right: 658
                     }});
                 });
             } catch (e) {
@@ -44,7 +43,7 @@ describe('map layout epics', () => {
     it('tests layout with prop', (done) => {
         ConfigUtils.setConfigProp('mapLayout', {
             left: { sm: 300, md: 500, lg: 600 },
-            right: { md: 658 },
+            right: { md: 330 },
             bottom: { sm: 120 }
         });
         const epicResult = actions => {
@@ -53,10 +52,10 @@ describe('map layout epics', () => {
                 actions.map((action) => {
                     expect(action.type).toBe(UPDATE_MAP_LAYOUT);
                     expect(action.layout).toEqual({
-                        left: 600, right: 658, bottom: 120, transform: 'none', height: 'calc(100% - 120px)', boundingMapRect: {
+                        left: 600, right: 330, bottom: 120, transform: 'none', height: 'calc(100% - 120px)', boundingMapRect: {
+                            bottom: 120,
                             left: 600,
-                            right: 658,
-                            bottom: 120
+                            right: 330
                         }
                     });
                 });
@@ -145,16 +144,16 @@ describe('map layout epics', () => {
     });
 
     describe('tests layout updated for right panels', () => {
-        const epicResult = done => actions => {
+        const epicResult = (done, right = 658) => actions => {
             try {
                 expect(actions.length).toBe(1);
                 actions.map((action) => {
                     expect(action.type).toBe(UPDATE_MAP_LAYOUT);
                     expect(action.layout).toEqual({
-                        left: 0, right: 658, bottom: 30, transform: 'none', height: 'calc(100% - 30px)', boundingMapRect: {
+                        left: 0, right, bottom: 30, transform: 'none', height: 'calc(100% - 30px)', boundingMapRect: {
+                            bottom: 30,
                             left: 0,
-                            right: 658,
-                            bottom: 30
+                            right
                         }
                     });
                 });
@@ -173,7 +172,7 @@ describe('map layout epics', () => {
         });
         it('annotations', (done) => {
             const state = { controls: { annotations: { enabled: true, group: "parent" } } };
-            testEpic(updateMapLayoutEpic, 1, setControlProperties("annotations", "enabled", true, "group", "parent"), epicResult(done), state);
+            testEpic(updateMapLayoutEpic, 1, setControlProperties("annotations", "enabled", true, "group", "parent"), epicResult(done, 329), state);
         });
         it('details', (done) => {
             const state = { controls: { details: { enabled: true, group: "parent" } } };

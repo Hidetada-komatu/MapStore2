@@ -6,18 +6,31 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const expect = require('expect');
+import expect from 'expect';
 
-const { updateMapVisibility, updateDashboardVisibility, updateGeoStoryFeedbackMaskVisibility, detectNewPage, feedbackMaskPromptLogin} = require('../feedbackMask');
-const {FEEDBACK_MASK_LOADING, FEEDBACK_MASK_LOADED, FEEDBACK_MASK_ENABLED, DETECTED_NEW_PAGE} = require('../../actions/feedbackMask');
-const {initMap} = require('../../actions/map');
-const {configureMap, configureError} = require('../../actions/config');
-const {loadDashboard, dashboardLoaded, dashboardLoadError} = require('../../actions/dashboard');
-const { loadGeostory, geostoryLoaded, loadGeostoryError } = require('../../actions/geostory');
-const {LOGIN_REQUIRED} = require('../../actions/security');
-const { onLocationChanged } = require('connected-react-router');
+import {
+    updateMapVisibility,
+    updateDashboardVisibility,
+    updateGeoStoryFeedbackMaskVisibility,
+    detectNewPage,
+    feedbackMaskPromptLogin,
+    redirectUnauthorizedUserOnNewLoadError
+} from '../feedbackMask';
 
-const {testEpic, addTimeoutEpic, TEST_TIMEOUT} = require('./epicTestUtils');
+import {
+    FEEDBACK_MASK_LOADING,
+    FEEDBACK_MASK_LOADED,
+    FEEDBACK_MASK_ENABLED,
+    DETECTED_NEW_PAGE
+} from '../../actions/feedbackMask';
+
+import { initMap } from '../../actions/map';
+import { configureMap, configureError } from '../../actions/config';
+import { loadDashboard, dashboardLoaded, dashboardLoadError } from '../../actions/dashboard';
+import { loadGeostory, geostoryLoaded, loadGeostoryError } from '../../actions/geostory';
+import { LOGIN_REQUIRED } from '../../actions/security';
+import { onLocationChanged } from 'connected-react-router';
+import { testEpic, addTimeoutEpic, TEST_TIMEOUT } from './epicTestUtils';
 
 describe('feedbackMask Epics', () => {
 
@@ -211,5 +224,55 @@ describe('feedbackMask Epics', () => {
         }
         });
     });
+    it('should navigate to homepage when user made some changes to new map, and prompt appears', (done) => {
+        const epicResponse = (actions) => {
+            expect(actions.length).toBe(1);
+            expect(actions[0].type).toBe('@@router/CALL_HISTORY_METHOD');
+            done();
+        };
 
+        const initState = {
+            router: {
+                location: {
+                    pathname: '/viewer/openlayers/new'
+                }
+            }
+        };
+
+        testEpic(redirectUnauthorizedUserOnNewLoadError, 1, configureError({status: 403}), epicResponse, initState);
+    });
+    it('should navigate to homepage when user made some changes to new geostory, and prompt appears', (done) => {
+        const epicResponse = (actions) => {
+            expect(actions.length).toBe(1);
+            expect(actions[0].type).toBe('@@router/CALL_HISTORY_METHOD');
+            done();
+        };
+
+        const initState = {
+            router: {
+                location: {
+                    pathname: '/geostory/newgeostory'
+                }
+            }
+        };
+
+        testEpic(redirectUnauthorizedUserOnNewLoadError, 1, configureError({status: 403}), epicResponse, initState);
+    });
+    it('should navigate to homepage when user made some changes to new dashboard, and prompt appears', (done) => {
+        const epicResponse = (actions) => {
+            expect(actions.length).toBe(1);
+            expect(actions[0].type).toBe('@@router/CALL_HISTORY_METHOD');
+            done();
+        };
+
+        const initState = {
+            router: {
+                location: {
+                    pathname: '/dashboard'
+                }
+            }
+        };
+
+        testEpic(redirectUnauthorizedUserOnNewLoadError, 1, configureError({status: 403}), epicResponse, initState);
+    });
 });

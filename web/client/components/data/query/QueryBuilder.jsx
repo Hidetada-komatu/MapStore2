@@ -1,4 +1,3 @@
-const PropTypes = require('prop-types');
 /**
  * Copyright 2016, GeoSolutions Sas.
  * All rights reserved.
@@ -6,18 +5,21 @@ const PropTypes = require('prop-types');
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
 
-const GroupField = require('./GroupField');
-const SpatialFilter = require('./SpatialFilter');
-const QueryToolbar = require('./QueryToolbar');
-const crossLayerFilterEnhancer = require('./enhancers/crossLayerFilter');
-const CrossLayerFilter = crossLayerFilterEnhancer(require('./CrossLayerFilter'));
-const BorderLayout = require('../../layout/BorderLayout');
+import './queryform.css';
 
-const Spinner = require('react-spinkit');
+import PropTypes from 'prop-types';
+import React from 'react';
+import Spinner from 'react-spinkit';
 
-require('./queryform.css');
+import BorderLayout from '../../layout/BorderLayout';
+import CrossLayerFilterComp from './CrossLayerFilter';
+import crossLayerFilterEnhancer from './enhancers/crossLayerFilter';
+import GroupField from './GroupField';
+import QueryToolbar from './QueryToolbar';
+import SpatialFilter from './SpatialFilter';
+
+const CrossLayerFilter = crossLayerFilterEnhancer(CrossLayerFilterComp);
 
 class QueryBuilder extends React.Component {
     static propTypes = {
@@ -35,6 +37,7 @@ class QueryBuilder extends React.Component {
         removeButtonIcon: PropTypes.string,
         addButtonIcon: PropTypes.string,
         attributePanelExpanded: PropTypes.bool,
+        showDetailsButton: PropTypes.bool,
         spatialPanelExpanded: PropTypes.bool,
         crossLayerExpanded: PropTypes.bool,
         showDetailsPanel: PropTypes.bool,
@@ -58,6 +61,9 @@ class QueryBuilder extends React.Component {
         crossLayerFilterOptions: PropTypes.object,
         crossLayerFilterActions: PropTypes.object,
         hits: PropTypes.bool,
+        clearFilterOptions: PropTypes.object,
+        buttonStyle: PropTypes.string,
+        removeGroupButtonIcon: PropTypes.string,
         maxHeight: PropTypes.number,
         allowEmptyFilter: PropTypes.bool,
         autocompleteEnabled: PropTypes.bool,
@@ -77,6 +83,8 @@ class QueryBuilder extends React.Component {
         featureTypeConfigUrl: null,
         useMapProjection: true,
         groupLevels: 1,
+        buttonStyle: "default",
+        removeGroupButtonIcon: "trash",
         groupFields: [],
         filterFields: [],
         attributes: [],
@@ -178,6 +186,8 @@ class QueryBuilder extends React.Component {
         return this.props.attributes.length > 0 ?
             <BorderLayout header={header} className="mapstore-query-builder" id="query-form-panel">
                 <GroupField
+                    buttonStyle={this.props.buttonStyle}
+                    removeGroupButtonIcon={this.props.removeGroupButtonIcon}
                     autocompleteEnabled={this.props.autocompleteEnabled}
                     maxFeaturesWPS={this.props.maxFeaturesWPS}
                     attributes={this.props.attributes}
@@ -191,8 +201,10 @@ class QueryBuilder extends React.Component {
                 {this.props.toolsOptions.hideSpatialFilter ? null : <SpatialFilter
                     useMapProjection={this.props.useMapProjection}
                     spatialField={this.props.spatialField}
+                    clearFilterOptions={this.props.clearFilterOptions}
                     spatialOperations={this.props.spatialOperations}
                     spatialMethodOptions={this.props.spatialMethodOptions}
+                    showDetailsButton={this.props.showDetailsButton}
                     spatialPanelExpanded={this.props.spatialPanelExpanded}
                     showDetailsPanel={this.props.showDetailsPanel}
                     actions={this.props.spatialFilterActions}
@@ -211,4 +223,4 @@ class QueryBuilder extends React.Component {
     }
 }
 
-module.exports = QueryBuilder;
+export default QueryBuilder;

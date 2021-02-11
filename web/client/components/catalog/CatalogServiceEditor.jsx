@@ -8,8 +8,9 @@
 import React, {useState} from 'react';
 import Spinner from "react-spinkit";
 
-import { FormGroup, Button, Form, Col } from "react-bootstrap";
+import { FormGroup, Form, Col } from "react-bootstrap";
 
+import Button from '../misc/Button';
 import BorderLayout from "../layout/BorderLayout";
 import Message from "../I18N/Message";
 
@@ -44,7 +45,11 @@ export default ({
     onToggleThumbnail = () => {},
     onAddService = () => {},
     onDeleteService = () => {},
-    onChangeCatalogMode = () => {}
+    onChangeCatalogMode = () => {},
+    selectedService,
+    isLocalizedLayerStylesEnabled,
+    tileSizeOptions = [256],
+    layerOptions
 }) => {
     const [valid, setValid] = useState(true);
     return (<BorderLayout
@@ -75,6 +80,10 @@ export default ({
                 onChangeServiceProperty={onChangeServiceProperty}
                 onToggleTemplate={onToggleTemplate}
                 onToggleThumbnail={onToggleThumbnail}
+                isLocalizedLayerStylesEnabled={isLocalizedLayerStylesEnabled}
+                tileSizeOptions={tileSizeOptions}
+                currentWMSCatalogLayerSize={layerOptions.tileSize ? layerOptions.tileSize : 256}
+                selectedService={selectedService}
             />
             <FormGroup controlId="buttons" key="buttons">
                 <Col xs={12}>

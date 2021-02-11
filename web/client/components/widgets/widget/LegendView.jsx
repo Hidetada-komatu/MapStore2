@@ -5,14 +5,15 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const { isNil } = require('lodash');
-const SideGrid = require('../../misc/cardgrids/SideGrid');
-const { Glyphicon, Grid, Row, Col} = require('react-bootstrap');
-const Slider = require('../../misc/Slider');
-const WMSLegend = require('../../TOC/fragments/WMSLegend');
+import React from 'react';
 
-module.exports = ({
+import { isNil, isObject } from 'lodash';
+import SideGrid from '../../misc/cardgrids/SideGrid';
+import { Glyphicon, Grid, Row, Col } from 'react-bootstrap';
+import Slider from '../../misc/Slider';
+import WMSLegend from '../../TOC/fragments/WMSLegend';
+
+export default ({
     layers = [],
     onChange = () => {},
     legendProps = {},
@@ -20,12 +21,13 @@ module.exports = ({
     disableOpacitySlider = true,
     disableVisibility = true,
     scales,
-    language
+    language,
+    currentLocale
 }) => <SideGrid
     className="compact-legend-grid"
     size="sm"
     items={layers.map(layer => ({
-        title: layer.title,
+        title: layer.title && isObject(layer.title) && (layer.title[currentLocale] || layer.title.default) || layer.title,
         preview: disableVisibility
             ? null
             : <Glyphicon className="text-primary"

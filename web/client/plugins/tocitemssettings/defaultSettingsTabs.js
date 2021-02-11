@@ -18,8 +18,8 @@ import TextViewer from '../../components/data/identify/viewers/TextViewer';
 import JSONViewer from '../../components/data/identify/viewers/JSONViewer';
 import HtmlRenderer from '../../components/misc/HtmlRenderer';
 
-import MapInfoUtils from '../../utils/MapInfoUtils';
-import PluginsUtils from '../../utils/PluginsUtils';
+import {getAvailableInfoFormat} from '../../utils/MapInfoUtils';
+import {getConfiguredPlugin as getConfiguredPluginUtil } from '../../utils/PluginsUtils';
 
 import General from '../../components/TOC/fragments/settings/General';
 import Display from '../../components/TOC/fragments/settings/Display';
@@ -30,6 +30,9 @@ import LoadingView from '../../components/misc/LoadingView';
 import html from 'raw-loader!./featureInfoPreviews/responseHTML.txt';
 import json from 'raw-loader!./featureInfoPreviews/responseJSON.txt';
 import text from 'raw-loader!./featureInfoPreviews/responseText.txt';
+import SimpleVectorStyleEditor from './SimpleVectorStyleEditor';
+
+
 const responses = {
     html,
     json: JSON.parse(json),
@@ -37,9 +40,23 @@ const responses = {
 };
 
 import { StyleSelector } from '../styleeditor/index';
+
 const StyleList = defaultProps({ readOnly: true })(StyleSelector);
 
+const isLayerNode = ({settings = {}} = {}) => settings.nodeType === 'layers';
+const isVectorStylableLayer = ({element = {}} = {}) => element.type === "wfs" || element.type === "vector" && element.id !== "annotations";
+const isWMS = ({element = {}} = {}) => element.type === "wms";
+const isStylableLayer = (props) =>
+    isLayerNode(props)
+    && (isWMS(props) || isVectorStylableLayer(props));
+
+
 const formatCards = {
+    HIDDEN: {
+        titleId: 'layerProperties.hideFormatTitle',
+        descId: 'layerProperties.hideFormatDescription',
+        glyph: 'hide-marker'
+    },
     TEXT: {
         titleId: 'layerProperties.textFormatTitle',
         descId: 'layerProperties.textFormatDescription',
@@ -104,7 +121,7 @@ const formatCards = {
 import FeatureInfoCmp from '../../components/TOC/fragments/settings/FeatureInfo';
 const FeatureInfo = defaultProps({
     formatCards,
-    defaultInfoFormat: MapInfoUtils.getAvailableInfoFormat()
+    defaultInfoFormat: Object.assign({ "HIDDEN": "text/html"}, getAvailableInfoFormat())
 })(FeatureInfoCmp);
 
 const configuredPlugins = {};
@@ -113,7 +130,7 @@ const getConfiguredPlugin = (plugin, loaded, loadingComp) => {
     if (plugin) {
         let configured = configuredPlugins[plugin.name];
         if (!configured) {
-            configured = PluginsUtils.getConfiguredPlugin(plugin, loaded, loadingComp);
+            configured = getConfiguredPluginUtil(plugin, loaded, loadingComp);
             if (configured && configured.loaded) {
                 configuredPlugins[plugin.name] = configured;
             }
@@ -123,11 +140,16 @@ const getConfiguredPlugin = (plugin, loaded, loadingComp) => {
     return plugin;
 };
 
-export const getStyleTabPlugin = ({ settings, items = [], loadedPlugins, onToggleStyleEditor = () => { }, onUpdateParams = () => { }, ...props }) => {
+export const getStyleTabPlugin = ({ settings, items = [], loadedPlugins, onToggleStyleEditor = () => { }, onUpdateParams = () => { }, element, ...props }) => {
+    if (isVectorStylableLayer({element})) {
+        return {
+            Component: SimpleVectorStyleEditor
+        };
+    }
     // get Higher priority plugin that satisfies requirements.
     const candidatePluginItems =
             sortBy(filter([...items], { target: 'style' }), ["priority"]) // find out plugins with target panel 'style' and sort by priority
-                .filter(({selector}) => selector ? selector(props) : true); // filter out items that do not have the correct requirements.
+                .filter(({selector}) => selector ? selector({...props, element}) : true); // filter out items that do not have the correct requirements.
     // TODO: to complete externalization of these items, we need to
     // move handlers, Component creation and configuration on the plugins, delegating also action dispatch.
     const thematicPlugin = head(filter(candidatePluginItems, {name: "ThematicLayer"}));
@@ -167,14 +189,15 @@ export const getStyleTabPlugin = ({ settings, items = [], loadedPlugins, onToggl
     const item = head(candidatePluginItems);
     // StyleEditor case TODO: externalize `onClose` trigger (delegating action dispatch) and components creation to make the two plugins independent
     if (item && item.plugin) {
+        const cfg = item.cfg || item.plugin.cfg;
         return {
             // This is connected on TOCItemsSettings close, not on StyleEditor unmount
             // to prevent re-initialization on each tab switch.
             onClose: () => onToggleStyleEditor(null, false),
-            Component: getConfiguredPlugin({ ...item, cfg: { ...(item.cfg || item.plugin.cfg || {}), active: true } }, loadedPlugins, <LoadingView width={100} height={100} />),
+            Component: getConfiguredPlugin({ ...item, cfg: { ...(cfg || {}), active: true } }, loadedPlugins, <LoadingView width={100} height={100} />),
             toolbarComponent: item.ToolbarComponent
                 && (
-                    item.plugin.cfg && defaultProps(item.plugin.cfg)(item.ToolbarComponent) || item.ToolbarComponent
+                    cfg && defaultProps(cfg)(item.ToolbarComponent) || item.ToolbarComponent
                 )
         };
     }
@@ -198,7 +221,7 @@ export default ({ showFeatureInfoTab = true, loadedPlugins, items, onToggleStyle
             titleId: 'layerProperties.display',
             tooltipId: 'layerProperties.display',
             glyph: 'eye-open',
-            visible: props.settings.nodeType === 'layers',
+            visible: isLayerNode(props),
             Component: Display
         },
         {
@@ -206,7 +229,7 @@ export default ({ showFeatureInfoTab = true, loadedPlugins, items, onToggleStyle
             titleId: 'layerProperties.style',
             tooltipId: 'layerProperties.style',
             glyph: 'dropper',
-            visible: props.settings.nodeType === 'layers' && props.element.type === "wms",
+            visible: isStylableLayer(props),
             Component: StyleList,
             ...getStyleTabPlugin({ items, loadedPlugins, onToggleStyleEditor, ...props })
         },
@@ -215,7 +238,7 @@ export default ({ showFeatureInfoTab = true, loadedPlugins, items, onToggleStyle
             titleId: 'layerProperties.featureInfo',
             tooltipId: 'layerProperties.featureInfo',
             glyph: 'map-marker',
-            visible: showFeatureInfoTab && props.settings.nodeType === 'layers' && props.element.type === "wms" && !(props.element.featureInfo && props.element.featureInfo.viewer),
+            visible: showFeatureInfoTab && isLayerNode(props) && isWMS(props) && !(props.element.featureInfo && props.element.featureInfo.viewer),
             Component: FeatureInfo,
             toolbar: [
                 {
@@ -231,7 +254,7 @@ export default ({ showFeatureInfoTab = true, loadedPlugins, items, onToggleStyle
             titleId: 'layerProperties.elevation',
             tooltipId: 'layerProperties.elevation',
             glyph: '1-vector',
-            visible: props.settings.nodeType === 'layers' && props.element.type === "wms" && props.element.dimensions && props.getDimension && props.getDimension(props.element.dimensions, 'elevation'),
+            visible: isLayerNode(props) && isWMS(props) && props.element.dimensions && props.getDimension && props.getDimension(props.element.dimensions, 'elevation'),
             Component: Elevation
         }
     ].filter(tab => tab.visible);

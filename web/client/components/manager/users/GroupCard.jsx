@@ -1,4 +1,3 @@
-const PropTypes = require('prop-types');
 /**
  * Copyright 2016, GeoSolutions Sas.
  * All rights reserved.
@@ -7,22 +6,23 @@ const PropTypes = require('prop-types');
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-// const Message = require('../I18N/Message');
-const GridCard = require('../../misc/GridCard');
-const {Button, Glyphicon} = require('react-bootstrap');
-const Message = require('../../../components/I18N/Message');
+import './style/usercard.css';
 
+import PropTypes from 'prop-types';
+import React from 'react';
+import { Glyphicon } from 'react-bootstrap';
 
-// const ConfirmModal = require('./modals/ConfirmModal');
-
-require('./style/usercard.css');
+import Button from '../../misc/Button';
+import Message from '../../../components/I18N/Message';
+import GridCard from '../../misc/GridCard';
 
 class GroupCard extends React.Component {
     static propTypes = {
         // props
         style: PropTypes.object,
         group: PropTypes.object,
+        titleStyle: PropTypes.object,
+        headerStyle: PropTypes.object,
         innerItemStyle: PropTypes.object,
         avatarStyle: PropTypes.object,
         nameStyle: PropTypes.object,
@@ -36,21 +36,27 @@ class GroupCard extends React.Component {
             backgroundPosition: "center",
             backgroundRepeat: "repeat-x"
         },
-        innerItemStyle: {
-            marginTop: "35px",
-            marginLeft: "9px"
+        titleStyle: {
+            display: "flex"
         },
+        headerStyle: {
+            flexGrow: 1,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            width: 0
+        },
+        innerItemStyle: {},
         avatarStyle: {
             margin: "10px"
         },
         nameStyle: {
-            position: "absolute",
-            left: "80px",
-            top: "30px",
-            width: "75%",
             borderBottom: "1px solid #ddd",
             fontSize: 18,
-            fontWeight: "bold"
+            fontWeight: "bold",
+            overflow: "auto",
+            wordWrap: "break-word",
+            minHeight: "1.5em"
         }
     };
 
@@ -72,7 +78,7 @@ class GroupCard extends React.Component {
     renderDescription = () => {
         return (<div className="group-thumb-description" style={this.props.innerItemStyle}>
             <div><strong><Message msgId="usergroups.description" /></strong></div>
-            <div>{this.props.group.description ? this.props.group.description : <Message msgId="usergroups.noDescriptionAvailable" />}</div>
+            <div className="group-thumb-description-content">{this.props.group.description ? this.props.group.description : <Message msgId="usergroups.noDescriptionAvailable" />}</div>
         </div>);
     };
 
@@ -80,15 +86,21 @@ class GroupCard extends React.Component {
         return (<div key="name" style={this.props.nameStyle}>{this.props.group.groupName}</div>);
     };
 
+    renderHeader = () => {
+        return <div style={this.props.headerStyle}>{this.props.group.groupName}</div>;
+    }
+
     render() {
         return (
-            <GridCard className="group-thumb" style={this.props.style} header={this.props.group.groupName}
+            <GridCard className="group-thumb" style={this.props.style} titleStyle={this.props.titleStyle} header={this.renderHeader()}
                 actions={this.props.actions}
             >
                 <div className="user-data-container">
                     {this.renderAvatar()}
-                    {this.renderName()}
-                    {this.renderDescription()}
+                    <div className="user-card-info-container">
+                        {this.renderName()}
+                        {this.renderDescription()}
+                    </div>
                 </div>
                 {this.renderStatus()}
             </GridCard>
@@ -96,4 +108,4 @@ class GroupCard extends React.Component {
     }
 }
 
-module.exports = GroupCard;
+export default GroupCard;

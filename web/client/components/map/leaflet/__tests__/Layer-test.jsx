@@ -6,39 +6,48 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const L = require('leaflet');
-const React = require('react');
-const ReactDOM = require('react-dom');
-const LeafLetLayer = require('../Layer.jsx');
-const Feature = require('../Feature.jsx');
-const expect = require('expect');
+import L from 'leaflet';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import MockAdapter from 'axios-mock-adapter';
+import axios from 'axios';
 
-const assign = require('object-assign');
+import LeafLetLayer from '../Layer.jsx';
+import Feature from '../Feature.jsx';
+import expect from 'expect';
 
-require('../../../../utils/leaflet/Layers');
-require('../plugins/OSMLayer');
-require('../plugins/GraticuleLayer');
-require('../plugins/WMSLayer');
-require('../plugins/WMTSLayer');
-require('../plugins/GoogleLayer');
-require('../plugins/BingLayer');
-require('../plugins/MapQuest');
-require('../plugins/VectorLayer');
+import assign from 'object-assign';
 
-const SecurityUtils = require('../../../../utils/SecurityUtils');
-const {DEFAULT_ANNOTATIONS_STYLES} = require('../../../../utils/AnnotationsUtils');
-const ConfigUtils = require('../../../../utils/ConfigUtils');
+import '../../../../utils/leaflet/Layers';
+import '../plugins/OSMLayer';
+import '../plugins/GraticuleLayer';
+import '../plugins/WMSLayer';
+import '../plugins/WMTSLayer';
+import '../plugins/GoogleLayer';
+import '../plugins/BingLayer';
+import '../plugins/MapQuest';
+import '../plugins/WFSLayer';
+import '../plugins/VectorLayer';
+
+let mockAxios;
+
+import { setStore } from '../../../../utils/SecurityUtils';
+import { DEFAULT_ANNOTATIONS_STYLES } from '../../../../utils/AnnotationsUtils';
+import { setConfigProp } from '../../../../utils/ConfigUtils';
+import { getResolutions } from '../../../../utils/MapUtils';
 
 describe('Leaflet layer', () => {
     let map;
 
     beforeEach((done) => {
+        mockAxios = new MockAdapter(axios);
         document.body.innerHTML = '<div id="map"></div><div id="container"></div>';
         map = L.map('map');
         setTimeout(done);
     });
 
     afterEach((done) => {
+        mockAxios.restore();
         ReactDOM.unmountComponentAtNode(document.getElementById("map"));
         ReactDOM.unmountComponentAtNode(document.getElementById("container"));
         document.body.innerHTML = '';
@@ -700,8 +709,8 @@ describe('Leaflet layer', () => {
                 SLD: "http://sample.server/geoserver/rest/sld?test1=aaa"
             }
         };
-        ConfigUtils.setConfigProp('useAuthenticationRules', true);
-        ConfigUtils.setConfigProp('authenticationRules', [
+        setConfigProp('useAuthenticationRules', true);
+        setConfigProp('authenticationRules', [
             {
                 urlPattern: '.*geostore.*',
                 method: 'bearer'
@@ -712,7 +721,7 @@ describe('Leaflet layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -743,8 +752,8 @@ describe('Leaflet layer', () => {
             opacity: 1.0,
             url: "http://sample.server/geoserver/wms"
         };
-        ConfigUtils.setConfigProp('useAuthenticationRules', true);
-        ConfigUtils.setConfigProp('authenticationRules', [
+        setConfigProp('useAuthenticationRules', true);
+        setConfigProp('authenticationRules', [
             {
                 urlPattern: '.*geostore.*',
                 method: 'bearer'
@@ -755,7 +764,7 @@ describe('Leaflet layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -790,7 +799,138 @@ describe('Leaflet layer', () => {
 
         expect(layer.layer.wmsParams['ms2-authkey']).toBe("########-####-$$$$-####-###########");
     });
-
+    it('tile matrix set and ids must be sorted to match each other', () => {
+        const tileMatrix = [{
+            "ows:Identifier": "0",
+            "ScaleDenominator": "17471320.75089746",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "1",
+            "MatrixHeight": "1"
+        },
+        {
+            "ows:Identifier": "2",
+            "ScaleDenominator": "4367830.187724365",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "4",
+            "MatrixHeight": "4"
+        },
+        {
+            "ows:Identifier": "1",
+            "ScaleDenominator": "8735660.37544873",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "2",
+            "MatrixHeight": "2"
+        },
+        {
+            "ows:Identifier": "3",
+            "ScaleDenominator": "2183915.0938621825",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "8",
+            "MatrixHeight": "8"
+        }];
+        const options = {
+            type: 'wmts',
+            visibility: false,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png',
+            requestEncoding: "RESTful",
+            tileMatrixSet: [
+                {
+                    'ows:Identifier': 'EPSG:3857',
+                    'ows:SupportedCRS': 'urn:ogc:def:crs:EPSG::3857',
+                    TileMatrix: tileMatrix
+                }
+            ],
+            url: 'http://sample.server/geoserver/gwc/service/wmts'
+        };
+        const layer = ReactDOM.render(<LeafLetLayer
+            type="wmts"
+            options={options}
+            map={map}
+        />, document.getElementById("container"));
+        const sortedTileMatrix = [...tileMatrix].sort((a, b) => Number(b.ScaleDenominator) - Number(a.ScaleDenominator));
+        sortedTileMatrix.map((v, i) => expect("EPSG:3857:" + v["ows:Identifier"]).toEqual(layer.layer.matrixIds[i].identifier));
+        layer.layer.matrixSet.map((v, i) => expect(v["ows:Identifier"]).toEqual(sortedTileMatrix[i]["ows:Identifier"]));
+    });
+    it('limited Ids array should provide the same number resolutions, sizes (that have to match), even with wrong sorting...', () => {
+        const tileMatrix = [{
+            "ows:Identifier": "0",
+            "ScaleDenominator": "17471320.75089746",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "1",
+            "MatrixHeight": "1"
+        },
+        {
+            "ows:Identifier": "2",
+            "ScaleDenominator": "4367830.187724365",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "4",
+            "MatrixHeight": "4"
+        },
+        {
+            "ows:Identifier": "1",
+            "ScaleDenominator": "8735660.37544873",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "2",
+            "MatrixHeight": "2"
+        },
+        {
+            "ows:Identifier": "3",
+            "ScaleDenominator": "2183915.0938621825",
+            "TopLeftCorner": "-46133.17 6301219.54",
+            "TileWidth": "256",
+            "TileHeight": "256",
+            "MatrixWidth": "8",
+            "MatrixHeight": "8"
+        }];
+        const options = {
+            type: 'wmts',
+            visibility: false,
+            name: 'nurc:Arc_Sample',
+            group: 'Meteo',
+            format: 'image/png',
+            requestEncoding: "RESTful",
+            matrixIds: {
+                'EPSG:3857': [{
+                    identifier: '0'
+                }, {
+                    identifier: '1'
+                }]
+            },
+            tileMatrixSet: [
+                {
+                    'ows:Identifier': 'EPSG:3857',
+                    'ows:SupportedCRS': 'urn:ogc:def:crs:EPSG::3857',
+                    TileMatrix: tileMatrix
+                }
+            ],
+            url: 'http://sample.server/geoserver/gwc/service/wmts'
+        };
+        const layer = ReactDOM.render(<LeafLetLayer
+            type="wmts"
+            options={options}
+            map={map}
+        />, document.getElementById("container"));
+        const sortedTileMatrix = [...tileMatrix].sort((a, b) => Number(b.ScaleDenominator) - Number(a.ScaleDenominator));
+        // they should have the same order and be a sub set
+        layer.layer.matrixIds.map((v, i) => expect(v.identifier).toEqual(sortedTileMatrix[i]["ows:Identifier"]));
+        layer.layer.matrixSet.map((v, i) => expect(v["ows:Identifier"]).toEqual(sortedTileMatrix[i]["ows:Identifier"]));
+    });
     it('test wmts security token', () => {
         const options = {
             type: 'wmts',
@@ -807,8 +947,8 @@ describe('Leaflet layer', () => {
             ],
             url: 'http://sample.server/geoserver/gwc/service/wmts'
         };
-        ConfigUtils.setConfigProp('useAuthenticationRules', true);
-        ConfigUtils.setConfigProp('authenticationRules', [
+        setConfigProp('useAuthenticationRules', true);
+        setConfigProp('authenticationRules', [
             {
                 urlPattern: '.*geostore.*',
                 method: 'bearer'
@@ -819,7 +959,7 @@ describe('Leaflet layer', () => {
             }
         ]);
 
-        SecurityUtils.setStore({
+        setStore({
             getState: () => ({
                 security: {
                     token: "########-####-####-####-###########"
@@ -1304,5 +1444,270 @@ describe('Leaflet layer', () => {
             expect(newLayer.layer.options.opacity).toEqual(opacity);
             done();
         });
+    });
+    // ******************************
+    // WFS
+    // ******************************
+    const SAMPLE_FEATURE_COLLECTION = {
+        "type": "FeatureCollection",
+        "totalFeatures": 6,
+        "features": [
+            {
+                "type": "Feature",
+                "id": "poi.1",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        -74.0104611,
+                        40.70758763
+                    ]
+                },
+                "properties": {
+                    "NAME": "museam"
+                }
+            }
+        ],
+        "crs": {
+            "type": "name",
+            "properties": {
+                "name": "urn:ogc:def:crs:EPSG::4326"
+            }
+        }
+    };
+    it('render wfs layer', (done) => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0).toBeTruthy();
+            return [200, SAMPLE_FEATURE_COLLECTION];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        let layer;
+        // first render
+        layer = ReactDOM.render(<LeafLetLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+        expect(layer.layer.getLayers().length).toBe(0);
+        layer.layer.on('load', function() {
+            expect(layer.layer.getLayers().length).toBe(1);
+            const f = layer.layer.getLayers()[0];
+            expect(f.getLatLng().lat).toEqual(40.70758763);
+            expect(f.getLatLng().lng).toEqual(-74.0104611,);
+            done();
+        });
+    });
+    it('test second render wfs layer', (done) => {
+        let firstCall = false;
+        mockAxios.onGet().reply(r => {
+            // catch second rendering with params
+            if (r.url.indexOf("CQL_FILTER=INCLUDE") > 0) {
+
+                return [200, SAMPLE_FEATURE_COLLECTION];
+            }
+            // first render returns empty features
+            return [200, { ...SAMPLE_FEATURE_COLLECTION, features: [] }];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile'
+        };
+        // first render
+        let layer = ReactDOM.render(<LeafLetLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+
+        layer.layer.on('load', () => {
+            if (layer.layer.getLayers().length > 0) {
+                expect(firstCall).toBeTruthy();
+                done();
+            } else {
+                firstCall = true;
+            }
+        });
+        // second render with custom params
+        layer = ReactDOM.render(<LeafLetLayer
+            type="wfs"
+            options={{
+                ...options,
+                params: { "CQL_FILTER": "INCLUDE" }
+            }}
+            map={map} />, document.getElementById("container"));
+    });
+    it('render wfs layer with FilterObj', (done) => {
+        mockAxios.onGet().reply(r => {
+            expect(r.url.indexOf('SAMPLE_URL') >= 0).toBeTruthy();
+            const params = r.url.split("?")[1].split("&");
+            const filterParam = params.filter(p => p.indexOf("CQL_FILTER") === 0)[0];
+            if (filterParam) {
+                const filterValue = decodeURIComponent(filterParam.split("=")[1]);
+                expect(filterValue).toEqual((`("prop2" = 'value2')`));
+                setTimeout(() => done(), 10);
+                return [200, { ...SAMPLE_FEATURE_COLLECTION, features: [] }];
+            }
+            return [200, SAMPLE_FEATURE_COLLECTION];
+        });
+        const options = {
+            type: 'wfs',
+            visibility: true,
+            url: 'SAMPLE_URL',
+            name: 'osm:vector_tile',
+            filterObj: {
+                filterFields: [
+                    {
+                        groupId: 1,
+                        attribute: "prop2",
+                        exception: null,
+                        operator: "=",
+                        rowId: "3",
+                        type: "number",
+                        value: "value2"
+                    }],
+                groupFields: [{
+                    id: 1,
+                    index: 0,
+                    logic: "OR"
+                }]
+            }
+        };
+
+        // first render
+        ReactDOM.render(<LeafLetLayer
+            type="wfs"
+            options={{
+                ...options
+            }}
+            map={map} />, document.getElementById("container"));
+    });
+
+    it('should remove layer if zoom resolution is less than minResolution', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const resolutions = getResolutions();
+        // create layers
+        let layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    minResolution
+                }}
+                position={0}
+                map={map}
+                zoom={0}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        expect(map.hasLayer(layer.layer)).toBe(true);
+
+        layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    minResolution
+                }}
+                position={0}
+                map={map}
+                zoom={11}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        // layer removed
+        expect(map.hasLayer(layer.layer)).toBe(false);
+
+    });
+
+    it('should remove layer if zoom resolution is greater than maxResolution', () => {
+        const maxResolution = 1222; // ~ zoom 7 Web Mercator
+        const resolutions = getResolutions();
+        // create layers
+        let layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    maxResolution
+                }}
+                position={0}
+                map={map}
+                zoom={11}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        expect(map.hasLayer(layer.layer)).toBe(true);
+
+        layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    maxResolution
+                }}
+                position={0}
+                map={map}
+                zoom={0}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        // layer removed
+        expect(map.hasLayer(layer.layer)).toBe(false);
+
+    });
+
+    it('should disable range limits with disableResolutionLimits options set to true', () => {
+        const minResolution = 1222; // ~ zoom 7 Web Mercator
+        const maxResolution = 39135; // ~ zoom 2 Web Mercator
+        const resolutions = getResolutions();
+        // create layers
+        let layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    minResolution,
+                    maxResolution
+                }}
+                position={0}
+                map={map}
+                zoom={0}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        // layer removed because is outside of limits
+        expect(map.hasLayer(layer.layer)).toBe(false);
+
+        layer = ReactDOM.render(
+            <LeafLetLayer
+                type="osm"
+                options={{
+                    visibility: true,
+                    minResolution,
+                    maxResolution,
+                    disableResolutionLimits: true
+                }}
+                position={0}
+                map={map}
+                zoom={0}
+                resolutions={resolutions}
+            />, document.getElementById("container"));
+
+        expect(layer).toBeTruthy();
+        expect(map.hasLayer(layer.layer)).toBe(true);
+
     });
 });

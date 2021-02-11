@@ -7,6 +7,7 @@
  */
 
 import Layers from '../../../../utils/openlayers/Layers';
+
 import {getStyle} from '../VectorStyle';
 import isEqual from 'lodash/isEqual';
 import VectorSource from 'ol/source/Vector';
@@ -28,7 +29,9 @@ Layers.registerType('vector', {
             visible: options.visibility !== false,
             zIndex: options.zIndex,
             style,
-            opacity: options.opacity
+            opacity: options.opacity,
+            minResolution: options.minResolution,
+            maxResolution: options.maxResolution
         });
     },
     update: (layer, newOptions, oldOptions) => {
@@ -40,11 +43,19 @@ Layers.registerType('vector', {
             });
         }
 
-        if (!isEqual(oldOptions.style, newOptions.style)) {
+        if (!isEqual(oldOptions.style, newOptions.style) || oldOptions.styleName !== newOptions.styleName) {
             layer.setStyle(getStyle(newOptions));
+        }
+
+        if (oldOptions.minResolution !== newOptions.minResolution) {
+            layer.setMinResolution(newOptions.minResolution === undefined ? 0 : newOptions.minResolution);
+        }
+        if (oldOptions.maxResolution !== newOptions.maxResolution) {
+            layer.setMaxResolution(newOptions.maxResolution === undefined ? Infinity : newOptions.maxResolution);
         }
     },
     render: () => {
         return null;
     }
 });
+

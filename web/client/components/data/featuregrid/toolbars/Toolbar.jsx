@@ -1,9 +1,12 @@
-const React = require('react');
-const {ButtonGroup, Glyphicon, Checkbox} = require('react-bootstrap');
-require("./toolbar.css");
-const Message = require('../../../I18N/Message');
-const withHint = require("../enhancers/withHint");
-const TButton = withHint(require("./TButton"));
+import './toolbar.css';
+
+import React from 'react';
+import { ButtonGroup, Checkbox, Glyphicon } from 'react-bootstrap';
+
+import Message from '../../../I18N/Message';
+import withHint from '../enhancers/withHint';
+import TButtonComp from "./TButton";
+const TButton = withHint(TButtonComp);
 const getDrawFeatureTooltip = (isDrawing, isSimpleGeom) => {
     if (isDrawing) {
         return "featuregrid.toolbar.stopDrawGeom";
@@ -16,7 +19,47 @@ const getSaveMessageId = ({saving, saved}) => {
     }
     return "featuregrid.toolbar.saveChanges";
 };
-module.exports = ({ events = {}, syncPopover = { showPopoverSync: true, dockSize: "32.2%" }, mode = "VIEW", showChartButton = true, selectedCount, hasChanges, hasGeometry, hasNewFeatures, isSimpleGeom, isDrawing = false, isEditingAllowed, saving = false, saved = false, isDownloadOpen, isColumnsOpen, disableToolbar, isSearchAllowed, disableDownload, displayDownload, isSyncActive = false, hasSupportedGeometry = true, disableZoomAll = false, isFilterActive = false, showTimeSyncButton = false, timeSync = false} = {}) => {
+
+/**
+ * Standard Toolbar for the FeatureGrid plugin.
+ *
+ * @param {bool} disableToolbar if true it disables all the buttons in the toolbar
+ * @param {bool} disableDownload if true it disables the Download button
+ * @param {bool} disableZoomAll if true it disables the ZoomAll button (defaults to false)
+ * @param {bool} displayDownload used to set visibility of download button
+ * @param {bool} showAdvancedFilterButton shows / hide the advanced filter button (defaults to true)
+ * @param {bool} showChartButton shows / hide the Chart (widget) button (defaults to true)
+ * @param {bool} showSyncOnMapButton shows / hide the show on map button (defaults to true)
+ * @param {bool} showTimeSyncButton shows / hide the timeSync button (defaults to false)
+*/
+export default ({
+    disableToolbar,
+    disableDownload,
+    disableZoomAll = false,
+    displayDownload,
+    events = {},
+    hasChanges,
+    hasGeometry,
+    hasNewFeatures,
+    hasSupportedGeometry = true,
+    isColumnsOpen,
+    isDrawing = false,
+    isEditingAllowed,
+    isFilterActive = false,
+    isDownloadOpen,
+    isSearchAllowed,
+    isSimpleGeom,
+    isSyncActive = false,
+    saved = false,
+    saving = false,
+    selectedCount,
+    showAdvancedFilterButton = true,
+    showChartButton = true,
+    showSyncOnMapButton = true,
+    showTimeSyncButton = false,
+    syncPopover = { showPopoverSync: true, dockSize: "32.2%" }, mode = "VIEW",
+    timeSync = false
+} = {}) => {
     return (<ButtonGroup id="featuregrid-toolbar" className="featuregrid-toolbar featuregrid-toolbar-margin">
         <TButton
             id="edit-mode"
@@ -32,7 +75,7 @@ module.exports = ({ events = {}, syncPopover = { showPopoverSync: true, dockSize
             tooltipId="featuregrid.toolbar.advancedFilter"
             active={isFilterActive}
             disabled={disableToolbar || !isSearchAllowed}
-            visible={mode === "VIEW"}
+            visible={mode === "VIEW" && showAdvancedFilterButton}
             onClick={events.showQueryPanel}
             glyph="filter"/>
         <TButton
@@ -109,7 +152,7 @@ module.exports = ({ events = {}, syncPopover = { showPopoverSync: true, dockSize
             active={isDownloadOpen}
             visible={displayDownload && mode === "VIEW"}
             onClick={events.download}
-            glyph="features-grid-download"/>
+            glyph="download"/>
         <TButton
             id="grid-settings"
             keyProp="grid-settings"
@@ -133,7 +176,7 @@ module.exports = ({ events = {}, syncPopover = { showPopoverSync: true, dockSize
             tooltipId="featuregrid.toolbar.syncOnMap"
             disabled={disableToolbar}
             active={isSyncActive}
-            visible={mode === "VIEW"}
+            visible={showSyncOnMapButton}
             onClick={events.sync}
             glyph="map-filter"
             renderPopover={syncPopover.showPopoverSync}

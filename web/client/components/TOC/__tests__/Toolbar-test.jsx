@@ -5,13 +5,12 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const React = require('react');
-const ReactDOM = require('react-dom');
+import React from 'react';
 
-const Toolbar = require('../Toolbar');
-const expect = require('expect');
-
-const TestUtils = require('react-dom/test-utils');
+import ReactDOM from 'react-dom';
+import Toolbar from '../Toolbar';
+import expect from 'expect';
+import TestUtils from 'react-dom/test-utils';
 
 const onToolsActions = {
     onZoom: () => {},
@@ -30,7 +29,8 @@ const onToolsActions = {
     onAddGroup: () => {},
     onGetMetadataRecord: () => {},
     onHideLayerMetadata: () => {},
-    onShow: () => {}
+    onShow: () => {},
+    onLayerInfo: () => {}
 };
 
 describe('TOC Toolbar', () => {
@@ -46,18 +46,22 @@ describe('TOC Toolbar', () => {
     });
 
     it('deselected element', () => {
+        const spyLayerInfo = expect.spyOn(onToolsActions, 'onLayerInfo');
         const spyAddLayer = expect.spyOn(onToolsActions, 'onAddLayer');
         const spyAddGroup = expect.spyOn(onToolsActions, 'onAddGroup');
         ReactDOM.render(<Toolbar onToolsActions={onToolsActions}/>, document.getElementById("container"));
         const el = document.getElementsByClassName("btn-group").item(0);
         expect(el).toExist();
         const btn = el.getElementsByClassName("btn");
-        expect(btn.length).toBe(2);
-        expect(btn[0].innerHTML).toContain('add-layer');
-        expect(btn[1].innerHTML).toContain('add-folder');
+        expect(btn.length).toBe(3);
+        expect(btn[0].innerHTML).toContain('layer-info');
+        expect(btn[1].innerHTML).toContain('add-layer');
+        expect(btn[2].innerHTML).toContain('add-folder');
         TestUtils.Simulate.click(btn[0]);
-        expect(spyAddLayer).toHaveBeenCalled();
+        expect(spyLayerInfo).toHaveBeenCalled();
         TestUtils.Simulate.click(btn[1]);
+        expect(spyAddLayer).toHaveBeenCalled();
+        TestUtils.Simulate.click(btn[2]);
         expect(spyAddGroup).toHaveBeenCalled();
     });
 
@@ -92,7 +96,7 @@ describe('TOC Toolbar', () => {
         const el = ReactDOM.findDOMNode(cmp);
         expect(el).toExist();
         const btn = el.getElementsByClassName("btn");
-        expect(btn.length).toBe(6);
+        expect(btn.length).toBe(7);
         TestUtils.Simulate.click(btn[0]);
         expect(spyZoom).toHaveBeenCalledWith({
             maxx: 10,
@@ -151,7 +155,7 @@ describe('TOC Toolbar', () => {
         const el = ReactDOM.findDOMNode(cmp);
         expect(el).toExist();
         const btn = el.getElementsByClassName("btn");
-        expect(btn.length).toBe(3);
+        expect(btn.length).toBe(4);
         TestUtils.Simulate.click(btn[0]);
         expect(spyZoom).toHaveBeenCalledWith({
             maxx: 10,
@@ -504,7 +508,7 @@ describe('TOC Toolbar', () => {
         const el = ReactDOM.findDOMNode(cmp);
         expect(el).toExist();
         const btn = el.getElementsByClassName('btn');
-        expect(btn.length).toBe(3);
+        expect(btn.length).toBe(4);
         expect(btn[0].style.cursor).toBe('default');
     });
     describe('Widget tool', () => {

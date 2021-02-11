@@ -6,23 +6,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
-const PropTypes = require('prop-types');
-const {DropdownList} = require('react-widgets');
-const Message = require('../../../I18N/Message');
-const {Grid, Row, Col, FormGroup, ControlLabel, FormControl, Checkbox} = require('react-bootstrap');
-const {clamp, isNil, isNumber} = require('lodash');
-const Legend = require('../legend/Legend');
+import 'react-widgets/lib/less/react-widgets.less';
 
-require('react-widgets/lib/less/react-widgets.less');
+import { clamp, isNil, isNumber } from 'lodash';
+import PropTypes from 'prop-types';
+import React from 'react';
+import { Checkbox, Col, ControlLabel, FormGroup, Grid, Row } from 'react-bootstrap';
+import { DropdownList } from 'react-widgets';
 
-module.exports = class extends React.Component {
+import IntlNumberFormControl from '../../../I18N/IntlNumberFormControl';
+import Message from '../../../I18N/Message';
+import InfoPopover from '../../../widgets/widget/InfoPopover';
+import Legend from '../legend/Legend';
+
+export default class extends React.Component {
     static propTypes = {
         opacityText: PropTypes.node,
         element: PropTypes.object,
         formats: PropTypes.array,
         settings: PropTypes.object,
-        onChange: PropTypes.func
+        onChange: PropTypes.func,
+        containerWidth: PropTypes.number,
+        currentLocaleLanguage: PropTypes.string,
+        isLocalizedLayerStylesEnabled: PropTypes.bool
     };
 
     static defaultProps = {
@@ -38,28 +44,11 @@ module.exports = class extends React.Component {
     state = {
         opacity: 100,
         legendOptions: {
-            legendWidth: "",
-            legendHeight: ""
+            legendWidth: 12,
+            legendHeight: 12
         },
         containerStyle: {overflowX: 'auto'},
         containerWidth: 0
-    };
-
-    updateState = (props) =>{
-        if (props.settings && props.settings.options) {
-            this.setState({
-                ...this.state,
-                opacity: !isNil(props.settings.options.opacity) ? Math.round(props.settings.options.opacity * 100) : this.state.opacity,
-                legendOptions: {
-                    ...this.state.legendOptions,
-                    legendHeight: props.element.legendOptions && !isNil(props.element.legendOptions.legendHeight) ?
-                        props.element.legendOptions.legendHeight : this.state.legendOptions.legendHeight,
-                    legendWidth: props.element.legendOptions && !isNil(props.element.legendOptions.legendWidth) ?
-                        props.element.legendOptions.legendWidth : this.state.legendOptions.legendWidth
-                },
-                containerWidth: this.containerRef.current && this.containerRef.current.clientWidth
-            });
-        }
     };
 
     componentDidMount() {
@@ -72,9 +61,7 @@ module.exports = class extends React.Component {
         }
     }
 
-    onChange = (event) =>{
-        const value = event.target.value;
-        const name = event.target.name;
+    onChange = (name, value) =>{
         if (name === 'opacity') {
             const opacity = value && clamp(Math.round(value), 0, 100);
             this.setState({opacity, ...this.state});
@@ -114,20 +101,6 @@ module.exports = class extends React.Component {
         }
         return null;
     };
-
-    setOverFlow = () =>{
-        return this.state.legendOptions.legendWidth > this.state.containerWidth;
-    };
-
-    useLegendOptions = () =>{
-        return (
-            this.getValidationState("legendWidth") !== 'error' &&
-            this.getValidationState("legendHeight") !== 'error' &&
-            isNumber(this.state.legendOptions.legendHeight) &&
-            isNumber(this.state.legendOptions.legendWidth)
-        );
-    };
-
     render() {
         return (
             <Grid
@@ -147,19 +120,31 @@ module.exports = class extends React.Component {
                                 }}/>
                         </FormGroup>
                     </Col>
+                    <Col xs={12}>
+                        <FormGroup>
+                            <ControlLabel><Message msgId="WMS Layer tile size" /></ControlLabel>
+                            <DropdownList
+                                key="wsm-layersize-dropdown"
+                                data={[256, 512]}
+                                value={this.props.element && this.props.element.tileSize || 256}
+                                onChange={(value) => {
+                                    this.props.onChange("tileSize", value);
+                                }}/>
+                        </FormGroup>
+                    </Col>
                 </Row>}
 
                 <Row>
                     <Col xs={12}>
                         <FormGroup>
                             <ControlLabel>{this.props.opacityText} %</ControlLabel>
-                            <FormControl
+                            <IntlNumberFormControl
                                 type="number"
                                 min={0}
                                 max={100}
                                 name={"opacity"}
                                 value={this.state.opacity}
-                                onChange={this.onChange}/>
+                                onChange={(val)=> this.onChange("opacity", val)}/>
                         </FormGroup>
                     </Col>
                 </Row>
@@ -182,6 +167,13 @@ module.exports = class extends React.Component {
                                 onChange={(e) => this.props.onChange("singleTile", e.target.checked)}>
                                 <Message msgId="layerProperties.singleTile"/>
                             </Checkbox>
+                            {(this.props.isLocalizedLayerStylesEnabled && (
+                                <Checkbox key="localizedLayerStyles" value="localizedLayerStyles"
+                                    data-qa="display-lacalized-layer-styles-option"
+                                    checked={this.props.element && (this.props.element.localizedLayerStyles !== undefined ? this.props.element.localizedLayerStyles : false )}
+                                    onChange={(e) => this.props.onChange("localizedLayerStyles", e.target.checked)}>
+                                    <Message msgId="layerProperties.enableLocalizedLayerStyles.label" />&nbsp;<InfoPopover text={<Message msgId="layerProperties.enableLocalizedLayerStyles.tooltip" />} />
+                                </Checkbox>))}
                         </FormGroup>
                     </Col>
                     <div className={"legend-options"}>
@@ -191,13 +183,13 @@ module.exports = class extends React.Component {
                         <Col xs={12} sm={6} className="first-selectize">
                             <FormGroup validationState={this.getValidationState("legendWidth")}>
                                 <ControlLabel><Message msgId="layerProperties.legendOptions.legendWidth" /></ControlLabel>
-                                <FormControl
+                                <IntlNumberFormControl
                                     value={this.state.legendOptions.legendWidth}
                                     name="legendWidth"
                                     type="number"
                                     min={12}
                                     max={1000}
-                                    onChange={this.onChange}
+                                    onChange={(val)=> this.onChange("legendWidth", val)}
                                     onKeyPress={(e)=> e.key === "-" && e.preventDefault()}
                                     onBlur={this.onBlur}
                                 />
@@ -206,13 +198,13 @@ module.exports = class extends React.Component {
                         <Col xs={12} sm={6} className="second-selectize">
                             <FormGroup validationState={this.getValidationState("legendHeight")}>
                                 <ControlLabel><Message msgId="layerProperties.legendOptions.legendHeight" /></ControlLabel>
-                                <FormControl
+                                <IntlNumberFormControl
                                     value={this.state.legendOptions.legendHeight}
                                     name="legendHeight"
                                     type="number"
                                     min={12}
                                     max={1000}
-                                    onChange={this.onChange}
+                                    onChange={(val)=> this.onChange("legendHeight", val)}
                                     onKeyPress={(e)=> e.key === "-" && e.preventDefault()}
                                     onBlur={this.onBlur}
                                 />
@@ -228,6 +220,8 @@ module.exports = class extends React.Component {
                                         this.useLegendOptions() && this.state.legendOptions.legendHeight || undefined}
                                     legendWidth={
                                         this.useLegendOptions() && this.state.legendOptions.legendWidth || undefined}
+                                    language={
+                                        this.props.isLocalizedLayerStylesEnabled ? this.props.currentLocaleLanguage : undefined}
                                 />
                             </div>
                         </Col>
@@ -236,4 +230,35 @@ module.exports = class extends React.Component {
             </Grid>
         );
     }
-};
+    updateState = (props) =>{
+        if (props.settings && props.settings.options) {
+            this.setState({
+                ...this.state,
+                opacity: !isNil(props.settings.options.opacity) ? Math.round(props.settings.options.opacity * 100) : this.state.opacity,
+                legendOptions: {
+                    ...this.state.legendOptions,
+                    legendHeight: props.element.legendOptions && !isNil(props.element.legendOptions.legendHeight) ?
+                        props.element.legendOptions.legendHeight : this.state.legendOptions.legendHeight,
+                    legendWidth: props.element.legendOptions && !isNil(props.element.legendOptions.legendWidth) ?
+                        props.element.legendOptions.legendWidth : this.state.legendOptions.legendWidth
+                },
+                containerWidth: this.containerRef.current && this.containerRef.current.clientWidth
+            });
+        }
+    };
+
+    setOverFlow = () =>{
+        return this.state.legendOptions.legendWidth > this.state.containerWidth;
+    };
+
+    useLegendOptions = () =>{
+        return (
+            this.getValidationState("legendWidth") !== 'error' &&
+            this.getValidationState("legendHeight") !== 'error' &&
+            isNumber(this.state.legendOptions.legendHeight) &&
+            isNumber(this.state.legendOptions.legendWidth)
+        );
+    };
+
+
+}

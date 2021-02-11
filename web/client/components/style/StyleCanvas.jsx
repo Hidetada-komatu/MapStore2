@@ -6,11 +6,12 @@
  * LICENSE file in the root directory of this source tree.
 */
 
-const React = require('react');
-const PropTypes = require('prop-types');
-const defaultIcon = require('../map/openlayers/img/marker-icon.png');
+import React from 'react';
 
-const {createSvgUrl, isSymbolStyle} = require('../../utils/VectorStyleUtils');
+import PropTypes from 'prop-types';
+import { isString } from 'lodash';
+import defaultIcon from '../map/openlayers/img/marker-icon.png';
+import { createSvgUrl, isSymbolStyle } from '../../utils/VectorStyleUtils';
 
 class StyleCanvas extends React.Component {
     static propTypes = {
@@ -52,8 +53,16 @@ class StyleCanvas extends React.Component {
         ctx.beginPath();
         const {color, fill} = this.props.shapeStyle;
 
-        ctx.fillStyle = fill ? `rgba(${ fill.r }, ${ fill.g }, ${ fill.b }, ${ fill.a })` : null;
-        ctx.strokeStyle = color ? `rgba(${ color.r }, ${ color.g }, ${ color.b }, ${ color.a })` : null;
+        ctx.fillStyle = fill
+            ? isString(fill)
+                ? fill
+                : `rgba(${ fill.r }, ${ fill.g }, ${ fill.b }, ${ fill.a })`
+            : null;
+        ctx.strokeStyle = color
+            ? isString(color)
+                ? color
+                : `rgba(${ color.r }, ${ color.g }, ${ color.b }, ${ color.a })`
+            : null;
         ctx.lineWidth = this.props.shapeStyle.width || this.props.shapeStyle.weight;
         if (this.props.shapeStyle.dashArray && this.props.shapeStyle.dashArray.length) {
             ctx.setLineDash(this.props.shapeStyle.dashArray);
@@ -265,4 +274,4 @@ class StyleCanvas extends React.Component {
     };
 }
 
-module.exports = StyleCanvas;
+export default StyleCanvas;

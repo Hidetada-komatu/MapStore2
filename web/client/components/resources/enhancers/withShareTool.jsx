@@ -10,20 +10,20 @@ import React from 'react';
 import {compose, withState} from 'recompose';
 import ConfigUtils from '../../../utils/ConfigUtils';
 import SharePanel from '../../share/SharePanel';
-import ShareUtils from '../../../utils/ShareUtils';
+import {getApiUrl, getConfigUrl} from '../../../utils/ShareUtils';
 import {isString} from 'lodash';
 
 export const addSharePanel = Component => props => {
-    const { showShareModal, onShowShareModal, shareModalSettings, setShareModalSettings, editedResource, setEditedResource, shareOptions = {}, getLocationObject = () => window.location, ...other } = props;
+    const { showShareModal, onShowShareModal, shareModalSettings, setShareModalSettings, editedResource, setEditedResource, shareOptions = {}, getLocationObject = () => window.location, version, ...other } = props;
     const { getShareUrl = () => { }, shareApi = false } = other;
     const options = editedResource && typeof shareOptions === 'function' ? shareOptions(editedResource) : shareOptions;
     const shareUrlResult = editedResource ? getShareUrl(editedResource) : '';
     const resourceUrl = isString(shareUrlResult) ? shareUrlResult : shareUrlResult.url;
-    const showAPI = isString(shareUrlResult) ? shareApi : shareUrlResult.shareApi;
     // window.location
     const location = getLocationObject();
     const baseURL = location && (location.origin + location.pathname);
     const fullUrl = editedResource ? baseURL + '#/' + resourceUrl : '';
+    const showAPI = isString(shareUrlResult) ? shareApi : shareUrlResult.shareApi;
 
     return (<div>
         <Component onShare={resource => {
@@ -37,8 +37,9 @@ export const addSharePanel = Component => props => {
             settings={shareModalSettings}
             shareUrl={fullUrl}
             showAPI={showAPI}
-            shareApiUrl={shareApi ? ShareUtils.getApiUrl(fullUrl) : ''}
-            shareConfigUrl={ShareUtils.getConfigUrl(fullUrl, ConfigUtils.getConfigProp('geoStoreUrl'))}
+            version={version}
+            shareApiUrl={showAPI ? getApiUrl(fullUrl) : ''}
+            shareConfigUrl={getConfigUrl(fullUrl, ConfigUtils.getConfigProp('geoStoreUrl'))}
             onClose={() => onShowShareModal(false)}
             onUpdateSettings={setShareModalSettings}
             {...options} />

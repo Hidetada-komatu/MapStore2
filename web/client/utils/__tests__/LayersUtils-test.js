@@ -5,9 +5,10 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-const expect = require('expect');
-const assign = require('object-assign');
-const LayersUtils = require('../LayersUtils');
+import expect from 'expect';
+
+import assign from 'object-assign';
+import * as LayersUtils from '../LayersUtils';
 const {extractTileMatrixSetFromLayers} = LayersUtils;
 const typeV1 = "empty";
 const emptyBackground = {
@@ -71,13 +72,42 @@ describe('LayersUtils', () => {
     });
 
     it('splits layers and groups groups additional data (expanded and title)', () => {
-        const groups = [{id: 'custom.nested001', expanded: true}, {id: 'custom.nested001.nested002', expanded: false}, {id: 'Default', expanded: false}, {id: 'custom', expanded: true, title: {'default': 'Default', 'en-US': 'new'}}];
-        const layers = [{id: 'layer001', group: 'Default'}, {id: 'layer002', group: 'Default'}, {id: 'layer003', group: 'custom.nested001'}, {id: 'layer004', group: 'custom.nested001.nested002'}];
+        const groups = [
+            {id: 'custom.nested001', expanded: true},
+            {id: 'custom.nested001.nested002', expanded: false},
+            {id: 'Default', expanded: false},
+            {id: 'custom', expanded: true, title: {'default': 'Default', 'en-US': 'new'}},
+            {id: 'test', expanded: true, title: "Test-group", description: "description", tooltipOptions: "both", tooltipPlacement: 'right'}
+        ];
+        const layers = [
+            {id: 'layer001', group: 'Default'},
+            {id: 'layer002', group: 'Default'},
+            {id: 'layer003', group: 'custom.nested001'},
+            {id: 'layer004', group: 'custom.nested001.nested002'},
+            {id: 'layer005', group: 'test'}
+        ];
 
         const state = LayersUtils.splitMapAndLayers({groups, layers});
 
         expect(state.layers.groups).toEqual([
-            {expanded: true, id: 'custom', name: 'custom', title: {'default': 'Default', 'en-US': 'new'},
+            {
+                expanded: true,
+                id: 'test',
+                name: 'test',
+                title: 'Test-group',
+                description: 'description',
+                tooltipOptions: 'both',
+                tooltipPlacement: 'right',
+                nodes: ['layer005']
+            },
+            {
+                expanded: true,
+                id: 'custom',
+                name: 'custom',
+                title: {'default': 'Default', 'en-US': 'new'},
+                description: undefined,
+                tooltipOptions: undefined,
+                tooltipPlacement: undefined,
                 nodes: [
                     {expanded: true, id: 'custom.nested001', name: 'nested001', title: 'nested001',
                         nodes: [
@@ -638,6 +668,73 @@ describe('LayersUtils', () => {
         ]);
     });
 
+    it('extract matrix from sources with object matrixIds', () => {
+        const sources = {
+            'http:url001': {
+                tileMatrixSet: {
+                    'EPSG:4326': {
+                        TileMatrix: [{
+                            'ows:Identifier': 'EPSG:4326:0'
+                        }],
+                        'ows:Identifier': "EPSG:4326",
+                        'ows:SupportedCRS': "urn:ogc:def:crs:EPSG::4326"
+                    },
+                    'custom': {
+                        TileMatrix: [{
+                            'ows:Identifier': 'custom:0'
+                        }],
+                        'ows:Identifier': "custom",
+                        'ows:SupportedCRS': "urn:ogc:def:crs:EPSG::900913"
+                    }
+                }
+            }
+        };
+
+        const layer = {
+            id: 'layer:001',
+            url: 'http:url001',
+            tileMatrixSet: true,
+            matrixIds: {'EPSG:4326': [], 'custom': []}
+        };
+
+        const {matrixIds, tileMatrixSet} = LayersUtils.extractTileMatrixFromSources(sources, layer);
+
+        expect(matrixIds).toEqual({
+            'EPSG:4326': [
+                {
+                    identifier: 'EPSG:4326:0',
+                    ranges: undefined
+                }
+            ],
+            'custom': [
+                {
+                    identifier: 'custom:0',
+                    ranges: undefined
+                }
+            ]
+        });
+
+        expect(tileMatrixSet).toEqual([
+            {
+                TileMatrix: [
+                    {
+                        'ows:Identifier': 'EPSG:4326:0'
+                    }
+                ],
+                'ows:Identifier': "EPSG:4326",
+                'ows:SupportedCRS': "urn:ogc:def:crs:EPSG::4326"
+            }, {
+                TileMatrix: [
+                    {
+                        'ows:Identifier': 'custom:0'
+                    }
+                ],
+                'ows:Identifier': "custom",
+                'ows:SupportedCRS': "urn:ogc:def:crs:EPSG::900913"
+            }
+        ]);
+    });
+
     it('extract matrix from sources no wmts layer', () => {
         const sources = {
             'http:url001': {
@@ -1038,5 +1135,42 @@ describe('LayersUtils', () => {
 
         expect(LayersUtils.getCapabilitiesUrl(layer)).toEqual(EXPECTED_CAPABILITIES_URL);
 
+    });
+
+    it('test getNestedGroupTitle', () => {
+
+        const groups = [
+            {id: 'default', title: 'Default', nodes: [{id: 'layer001', title: 'titleLayer001'}, {id: 'layer002', title: 'titleLayer002'}]}
+        ];
+        const id = 'layer001';
+        const groupTitle = LayersUtils.getNestedGroupTitle(id, groups);
+
+        expect(groupTitle).toExist();
+        expect(groupTitle).toEqual('titleLayer001');
+
+    });
+
+    it('test isInsideResolutionsLimits', () => {
+        expect(LayersUtils.isInsideResolutionsLimits({
+            maxResolution: 1000,
+            minResolution: 100
+        })).toBe(true);
+        expect(LayersUtils.isInsideResolutionsLimits({
+            maxResolution: 1000,
+            minResolution: 100
+        }, 500)).toBe(true);
+        expect(LayersUtils.isInsideResolutionsLimits({
+            maxResolution: 1000,
+            minResolution: 100,
+            disableResolutionLimits: true
+        }, 2000)).toBe(true);
+        expect(LayersUtils.isInsideResolutionsLimits({
+            maxResolution: 1000,
+            minResolution: 100
+        }, 99)).toBe(false);
+        expect(LayersUtils.isInsideResolutionsLimits({
+            maxResolution: 1000,
+            minResolution: 100
+        }, 1000)).toBe(false);
     });
 });

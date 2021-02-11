@@ -45,7 +45,7 @@ import Translate from 'ol/interaction/Translate';
 import Modify from 'ol/interaction/Modify';
 import Select from 'ol/interaction/Select';
 import {unByKey} from 'ol/Observable';
-import {getCenter} from 'ol/extent';
+import {getCenter, getWidth} from 'ol/extent';
 import {fromCircle, circular} from 'ol/geom/Polygon';
 
 const geojsonFormat = new GeoJSON();
@@ -249,11 +249,11 @@ export default class DrawSupport extends React.Component {
                         center = geometry.properties && geometry.properties.center ? reproject(geometry.properties.center, "EPSG:4326", mapCrs) : geometry.center;
                         center = [center.x, center.y];
                         feature = new Feature({
-                            geometry: this.createOLGeometry({type: "Circle", center, projection: "EPSG:3857", radius: geometry.properties && geometry.properties.radius || geometry.radius})
+                            geometry: this.createOLGeometry({type: "Circle", center, projection: "EPSG:3857", radius: geometry.properties && geometry.properties.radius || geometry.radius, options})
                         });
                     } else {
                         feature = new Feature({
-                            geometry: this.createOLGeometry(geometry.geometry ? geometry.geometry : {...geometry, ...geometry.properties, center })
+                            geometry: this.createOLGeometry(geometry.geometry ? geometry.geometry : {...geometry, radius: geometry.properties?.radius, center })
                         });
                     }
                     feature.setProperties(f.properties);
@@ -414,8 +414,15 @@ export default class DrawSupport extends React.Component {
                 let newFeature;
                 if (drawMethod === "Circle") {
                     newDrawMethod = "Polygon";
-                    const radius = drawnGeom.getRadius();
-                    let center = drawnGeom.getCenter();
+                    let radius;
+                    let center;
+                    if (this.props.options.geodesic) {
+                        radius = getWidth(drawnGeom.getExtent()) / 2;
+                        center = getCenter(drawnGeom.getExtent());
+                    } else {
+                        radius = drawnGeom.getRadius();
+                        center = drawnGeom.getCenter();
+                    }
                     const coordinates = this.polygonCoordsFromCircle(center, radius);
                     newFeature = this.getNewFeature(newDrawMethod, coordinates);
                     // TODO verify center is projected in 4326 and is an array
@@ -480,14 +487,15 @@ export default class DrawSupport extends React.Component {
                     let newMultiGeom = this.toMulti(this.createOLGeometry({type: newDrawMethod, coordinates: [coordinates]}));
                     if (features.length === 1 && !features[0].geometry) {
                         previousGeometries = [];
-                        geomCollection = new GeometryCollection([newMultiGeom]);
+                        geomCollection = newMultiGeom.clone();
                     } else {
                         previousGeometries = this.toMulti(head(drawnFeatures).getGeometry());
                         if (previousGeometries.getGeometries) {
                             let geoms = this.replaceCirclesWithPolygons(head(drawnFeatures));
                             geomCollection = new GeometryCollection([...geoms, newMultiGeom]);
                         } else {
-                            geomCollection = new GeometryCollection([previousGeometries, newMultiGeom]);
+                            geomCollection = previousGeometries.clone();
+                            geomCollection.appendPoint(newMultiGeom.getPoint(0));
                         }
                     }
                     sketchFeature.setGeometry(geomCollection);
@@ -870,19 +878,41 @@ export default class DrawSupport extends React.Component {
         };
         this.clean();
 
-        let newFeature = reprojectGeoJson(head(newProps.features), newProps.options.featureProjection, this.getMapCrs()) || {};
-        let props;
-        if (newFeature && newFeature.features && newFeature.features.length) {
-            // filtering circles features only when drawing
+        let newFeatures = newProps.features.map(f => {
+            return reprojectGeoJson(f, newProps.options.featureProjection, this.getMapCrs()) || {};
+        });
 
-            props = assign({}, newProps, {features: [newFeature]});
+        let props;
+        const allHaveFeatures = newFeatures.every(ft => {
+            if (ft && ft.features && ft.features.length) {
+                return true;
+            }
+            return false;
+        });
+
+        const allHaveCircleProperty = newFeatures.every(ft => {
+            if (ft && ft.properties && ft.properties.isCircle) {
+                return true;
+            }
+            return false;
+        });
+
+        if (allHaveFeatures) {
+            props = assign({}, newProps, {features: newFeatures});
         } else {
-            if (newFeature && newFeature.properties && newFeature.properties.isCircle) {
+            if (allHaveCircleProperty) {
                 props = assign({}, newProps, {features: []});
             } else {
-                props = assign({}, newProps, {features: newFeature.geometry ? [{...newFeature.geometry, properties: newFeature.properties}] : []});
+                const fts = newFeatures.reduce((pre, curr) => {
+                    if (curr.geometry) {
+                        return [...pre, {...curr.geometry, properties: curr.properties}];
+                    }
+                    return pre;
+                }, []);
+                props = assign({}, newProps, {features: fts});
             }
         }
+
         // TODO investigate if this newFeature.geometry is needed instead of only newFeature
         if (!this.drawLayer) {
             this.addLayer(props);

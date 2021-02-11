@@ -14,29 +14,27 @@ import {push} from 'connected-react-router';
 import Api from '../api/GeoStoreDAO';
 
 import ConfigUtils from '../utils/ConfigUtils';
-import MapUtils from '../utils/MapUtils';
 
 import {SAVE_CONTEXT, SAVE_TEMPLATE, LOAD_CONTEXT, LOAD_TEMPLATE, DELETE_TEMPLATE, EDIT_TEMPLATE, SHOW_DIALOG, SET_CREATION_STEP, MAP_VIEWER_LOAD,
     MAP_VIEWER_RELOAD, CHANGE_ATTRIBUTE, ENABLE_MANDATORY_PLUGINS, ENABLE_PLUGINS, DISABLE_PLUGINS, SAVE_PLUGIN_CFG,
-    EDIT_PLUGIN, CHANGE_PLUGINS_KEY, UPDATE_EDITED_CFG, VALIDATE_EDITED_CFG, SET_RESOURCE, UPLOAD_PLUGIN, UNINSTALL_PLUGIN, contextSaved, setResource,
-    startResourceLoad, loadFinished, loadTemplate, showDialog, setFileDropStatus, updateTemplate, isValidContextName,
-    contextNameChecked, setCreationStep, contextLoadError, loading, mapViewerLoad, mapViewerLoaded, setEditedPlugin,
+    EDIT_PLUGIN, CHANGE_PLUGINS_KEY, UPDATE_EDITED_CFG, VALIDATE_EDITED_CFG, SET_RESOURCE, UPLOAD_PLUGIN, UNINSTALL_PLUGIN,
+    SHOW_TUTORIAL, contextSaved, setResource, startResourceLoad, loadFinished, loadTemplate, showDialog, setFileDropStatus, updateTemplate,
+    isValidContextName, contextNameChecked, setCreationStep, contextLoadError, loading, mapViewerLoad, mapViewerLoaded, setEditedPlugin,
     setEditedCfg, setParsedCfg, validateEditedCfg, setValidationStatus, savePluginCfg, enableMandatoryPlugins,
     enablePlugins, disablePlugins, setCfgError, changePluginsKey, changeTemplatesKey, setEditedTemplate, setTemplates, setParsedTemplate,
-    pluginUploaded, pluginUploading, pluginUninstalled, pluginUninstalling, loadExtensions, uploadPluginError} from '../actions/contextcreator';
+    pluginUploaded, pluginUploading, pluginUninstalled, pluginUninstalling, loadExtensions, uploadPluginError,
+    setWasTutorialShown, setTutorialStep} from '../actions/contextcreator';
 import {newContextSelector, resourceSelector, creationStepSelector, mapConfigSelector, mapViewerLoadedSelector, contextNameCheckedSelector,
     editedPluginSelector, editedCfgSelector, validationStatusSelector, parsedCfgSelector, cfgErrorSelector,
-    pluginsSelector, initialEnabledPluginsSelector, editedTemplateSelector} from '../selectors/contextcreator';
+    pluginsSelector, initialEnabledPluginsSelector, templatesSelector, editedTemplateSelector, tutorialsSelector,
+    wasTutorialShownSelector} from '../selectors/contextcreator';
 import {CONTEXTS_LIST_LOADED} from '../actions/contextmanager';
 import {wrapStartStop} from '../observables/epics';
 import {isLoggedIn} from '../selectors/security';
 import {show, error} from '../actions/notifications';
+import {changePreset} from '../actions/tutorial';
 import {initMap} from '../actions/map';
-import {mapSelector} from '../selectors/map';
-import {layersSelector, groupsSelector} from '../selectors/layers';
-import {backgroundListSelector} from '../selectors/backgroundselector';
-import {textSearchConfigSelector} from '../selectors/searchconfig';
-import {mapOptionsToSaveSelector} from '../selectors/mapsave';
+import {mapSaveSelector} from '../selectors/mapsave';
 import {loadMapConfig} from '../actions/config';
 import {createResource, createCategory, updateResource, deleteResource, getResource} from '../api/persistence';
 import getPluginsConfig from '../observables/config/getPluginsConfig';
@@ -80,19 +78,21 @@ export const saveContextResource = (action$, store) => action$
     .ofType(SAVE_CONTEXT)
     .exhaustMap(({destLocation}) => {
         const state = store.getState();
+        const mapConfig = mapSaveSelector(state);
+        const plugins = pluginsSelector(state);
         const context = newContextSelector(state);
         const resource = resourceSelector(state);
-        const map = mapSelector(state);
-        const layers = layersSelector(state);
-        const groups = groupsSelector(state);
-        const backgrounds = backgroundListSelector(state);
-        const textSearchConfig = textSearchConfigSelector(state);
-        const additionalOptions = mapOptionsToSaveSelector(state);
-        const plugins = pluginsSelector(state);
-
-        const mapConfig = MapUtils.saveMapConfiguration(map, layers, groups, backgrounds, textSearchConfig, additionalOptions);
-
-        const pluginsArray = flattenPluginTree(plugins).filter(plugin => plugin.enabled);
+        const templates = templatesSelector(state);
+        const pluginsArray = flattenPluginTree(plugins).filter(plugin => plugin.enabled).map(plugin => plugin.name === 'MapTemplates' ? ({
+            ...plugin,
+            pluginConfig: {
+                ...plugin.pluginConfig,
+                cfg: {
+                    ...(plugin.pluginConfig.cfg || {}),
+                    allowedTemplates: templates.filter(template => template.enabled).map(template => pick(template, 'id'))
+                }
+            }
+        }) : plugin);
         const unselectablePlugins = makePlugins(pluginsArray.filter(plugin => !plugin.isUserPlugin));
         const userPlugins = makePlugins(pluginsArray.filter(plugin => plugin.isUserPlugin));
 
@@ -100,8 +100,7 @@ export const saveContextResource = (action$, store) => action$
             ...context,
             mapConfig,
             plugins: {desktop: unselectablePlugins},
-            userPlugins,
-            templates: get(context, 'templates', []).filter(template => template.enabled).map(template => pick(template, 'id'))
+            userPlugins
         };
         const newResource = resource && resource.id ? {
             ...omit(resource, 'name', 'description'),
@@ -119,15 +118,6 @@ export const saveContextResource = (action$, store) => action$
         };
 
         return (resource && resource.id ? updateResource : createResource)(newResource)
-            .catch(({status, data}) => Rx.Observable.of(error({
-                title: 'contextCreator.saveErrorNotification.titleContext',
-                message: saveContextErrorStatusToMessage(status),
-                position: "tc",
-                autoDismiss: 5,
-                values: {
-                    data
-                }
-            }), loading(false, 'contextSaving')))
             .switchMap(rid => Rx.Observable.merge(
                 // LOCATION_CHANGE triggers notifications clear, need to work around that
                 // can't wait for CLEAR_NOTIFICATIONS, because either in firefox notification action doesn't trigger
@@ -145,6 +135,15 @@ export const saveContextResource = (action$, store) => action$
                     loading(false, 'contextSaving')
                 ),
             ))
+            .catch(({status, data}) => Rx.Observable.of(error({
+                title: 'contextCreator.saveErrorNotification.titleContext',
+                message: saveContextErrorStatusToMessage(status),
+                position: "tc",
+                autoDismiss: 5,
+                values: {
+                    data
+                }
+            }), loading(false, 'contextSaving')))
             .startWith(loading(true, 'contextSaving'));
     });
 
@@ -226,9 +225,9 @@ export const deleteTemplateEpic = (action$, store) => action$
     .ofType(DELETE_TEMPLATE)
     .switchMap(({resource}) => deleteResource(resource).map(() => {
         const state = store.getState();
-        const newContext = newContextSelector(state);
+        const templates = templatesSelector(state) || [];
 
-        return setTemplates(get(newContext, 'templates', []).filter(template => template.id !== resource.id));
+        return setTemplates(templates.filter(template => template.id !== resource.id));
     }).let(wrapStartStop(
         loading(true, "loading"),
         loading(false, "loading"),
@@ -248,7 +247,7 @@ export const editTemplateEpic = (action$, store) => action$
     .ofType(EDIT_TEMPLATE)
     .switchMap(({id}) => {
         const state = store.getState();
-        const template = find(get(newContextSelector(state), 'templates', []), t => t.id === id) || {};
+        const template = find(templatesSelector(state), t => t.id === id) || {};
 
         return (id ? Rx.Observable.defer(() => Api.getData(id)) : Rx.Observable.of(null))
             .switchMap(data => Rx.Observable.of(
@@ -276,9 +275,8 @@ export const resetOnShowDialog = (action$, store) => action$
     .ofType(SHOW_DIALOG)
     .flatMap(({dialogName, show: showDialogBool}) => {
         const state = store.getState();
-        const context = newContextSelector(state) || {};
         const editedTemplateId = editedTemplateSelector(state);
-        const templates = context.templates || [];
+        const templates = templatesSelector(state) || [];
 
         return showDialogBool ?
             Rx.Observable.of(...(dialogName === 'uploadTemplate' && !editedTemplateId ? [setFileDropStatus(), setParsedTemplate()] : []),
@@ -440,6 +438,40 @@ export const loadMapViewerOnStepChange = (action$) => action$
     .ofType(SET_CREATION_STEP)
     .filter(({stepId}) => stepId === 'configure-map')
     .switchMap(() => Rx.Observable.of(mapViewerLoad()));
+
+/**
+ * Changes tutorial on creation step changes
+ * @memberof epics.contextcreator
+ * @param {observable} action$ manages `SET_CREATION_STEP`
+ * @param {object} store
+ */
+export const loadTutorialOnStepChange = (action$, store) => action$
+    .ofType(SET_CREATION_STEP)
+    .switchMap(({stepId}) => {
+        const tutorials = tutorialsSelector(store.getState()) || {};
+
+        return !wasTutorialShownSelector(stepId)(store.getState()) ?
+            Rx.Observable.of(
+                changePreset(tutorials[stepId], values(tutorials)),
+                setWasTutorialShown(stepId)
+            ) :
+            Rx.Observable.empty();
+    });
+
+/**
+ * Handles SHOW_TUTORIAL action
+ * @param {observables} action$ manages `SHOW_TUTORIAL`
+ * @param {object} store
+ */
+export const contextCreatorShowTutorialEpic = (action$, store) => action$
+    .ofType(SHOW_TUTORIAL)
+    .switchMap(({stepId}) => {
+        const tutorials = tutorialsSelector(store.getState()) || {};
+        return Rx.Observable.of(
+            setTutorialStep(),
+            changePreset(tutorials[stepId], values(tutorials), true)
+        );
+    });
 
 /**
  * Initiates context map load

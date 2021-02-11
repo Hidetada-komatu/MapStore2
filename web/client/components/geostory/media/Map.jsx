@@ -6,26 +6,20 @@
  * LICENSE file in the root directory of this source tree.
  */
 import React from 'react';
-import { compose, branch, withState } from 'recompose';
-import { Button as ButtonRB, Glyphicon } from 'react-bootstrap';
+import { compose, withState } from 'recompose';
+import { Glyphicon } from 'react-bootstrap';
 
 import MapView from '../common/MapView';
 import { applyDefaults } from '../../../utils/GeoStoryUtils';
 import {defaultLayerMapPreview} from '../../../utils/MediaEditorUtils';
 import Portal from '../../../components/misc/Portal';
 import tooltip from '../../../components/misc/enhancers/tooltip';
-import connectMap, {withLocalMapState, withMapEditingAndLocalMapState} from '../common/enhancers/map';
 import { withResizeDetector } from 'react-resize-detector';
 
+import ButtonRB from '../../misc/Button';
 const Button = tooltip(ButtonRB);
 
 export default compose(
-    branch(
-        ({ resourceId }) => resourceId,
-        connectMap,
-    ),
-    withLocalMapState,
-    withMapEditingAndLocalMapState,
     withState('active', 'setActive', false),
     withResizeDetector
 )(({
@@ -40,10 +34,16 @@ export default compose(
     setActive,
     width,
     height,
-    size
+    size,
+    showCaption,
+    caption: contentCaption,
+    mapType = "leaflet", // default for when map MediaViewer is not connected to redux
+    onMapTypeLoaded
 }) => {
 
-    const { layers = [], mapOptions = {}, ...m} = (map.data ? map.data : map);
+    const { layers = [], mapOptions = {}, description, ...m} = (map.data ? map.data : map);
+
+    const caption = contentCaption || description;
 
     const expandedMapOptions = active
         ? {
@@ -89,26 +89,29 @@ export default compose(
     // BaseMap component overrides the MapView id with map's id
     const mapView = (
         <>
-        <MapView
-            // force unmount to setup correct interactions
-            key={expandable ? 'overlay' : 'block'}
-            onMapViewChanges={onMapViewChanges}
-            eventHandlers={eventHandlers}
-            map={{
-                ...m,
-                id: `media-${id}`,
-                resize: width + '-' + height + '_' + size,
-                style: {
-                    width: '100%',
-                    height: '100%',
-                    cursor: isMapInfoControlActive ? 'pointer' : 'default'
-                }
-            }} // if map id is passed as number, the resource id, ol throws an error
-            layers={layers}
-            tools={isMapInfoControlActive ? ["popup"] : []}
-            options={applyDefaults(updatedMapOptions)}
-        />
-        {expandable && !editMap &&
+            <MapView
+                // force unmount to setup correct interactions
+                key={expandable ? 'overlay' : 'block'}
+                onMapViewChanges={onMapViewChanges}
+                eventHandlers={eventHandlers}
+                map={{
+                    ...m,
+                    id: `media-${id}`,
+                    resize: width + '-' + height + '_' + size,
+                    className: 'aaaa',
+                    style: {
+                        // removed width and height from style and added to .less
+                        // to use different sizes in story sections
+                        cursor: isMapInfoControlActive ? 'pointer' : 'default'
+                    }
+                }} // if map id is passed as number, the resource id, ol throws an error
+                layers={layers}
+                tools={isMapInfoControlActive ? ["popup"] : []}
+                options={applyDefaults(updatedMapOptions)}
+                mapType={mapType}
+                onMapTypeLoaded={onMapTypeLoaded}
+            />
+            {expandable && !editMap &&
         <Button
             className="ms-expand-media-button"
             onClick={() => setActive(!active)}
@@ -130,5 +133,10 @@ export default compose(
                 </div>
             </Portal>
             : mapView}
+        {showCaption && caption && <div className="ms-media-caption">
+            <small>
+                {caption}
+            </small>
+        </div>}
     </div>);
 });

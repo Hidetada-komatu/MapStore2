@@ -7,8 +7,8 @@ var Provider = require('react-redux').Provider;
 var MyApp = require('./containers/myapp');
 var url = require('url');
 
-var loadMapConfig = require('../../actions/config').loadMapConfig;
-var ConfigUtils = require('../../utils/ConfigUtils');
+var loadMapConfig = require('./actions/config').loadMapConfig;
+var ConfigUtils = require('../../utils/ConfigUtils').default;
 
 // initializes Redux store
 var store = require('./stores/myappstore');

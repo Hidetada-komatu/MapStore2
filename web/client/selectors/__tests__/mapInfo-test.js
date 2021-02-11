@@ -7,9 +7,11 @@
 */
 
 
-const expect = require('expect');
-const { set } = require('../../utils/ImmutableUtils');
-const {
+import expect from 'expect';
+
+import { set } from '../../utils/ImmutableUtils';
+
+import {
     mapInfoRequestsSelector,
     generalInfoFormatSelector,
     stopGetFeatureInfoSelector,
@@ -21,8 +23,10 @@ const {
     highlightStyleSelector,
     itemIdSelector,
     filterNameListSelector,
-    overrideParamsSelector
-} = require('../mapInfo');
+    overrideParamsSelector,
+    mapTriggerSelector,
+    hoverEnabledSelector
+} from '../mapInfo';
 
 const QUERY_PARAMS = {
     service: 'WMS',
@@ -338,5 +342,19 @@ describe('Test mapinfo selectors', () => {
             set('mapInfo.responses[0].layerMetadata.features[0].geometry.type', "Polygon", STATE_HIGHLIGHT)
         ).features[0].style.radius).toNotExist();
     });
-
+    it('test mapTriggerSelector', () => {
+        // when no mapInfo object is not present in state
+        expect(mapTriggerSelector({})).toBe('click');
+        // when no trigger in the configuration
+        expect(mapTriggerSelector({mapInfo: { configuration: {} }})).toBe('click');
+        // when mapInfo is present
+        expect(mapTriggerSelector({mapInfo: { configuration: { trigger: 'hover' } }})).toBe('hover');
+    });
+    it('test hoverEnabledSelector', () => {
+        // when no mapInfo object is not present in state
+        expect(hoverEnabledSelector({})).toBe(true);
+        // when mapInfo is present
+        expect(hoverEnabledSelector({maptype: {mapType: "openlayers"} })).toBe(true);
+        expect(hoverEnabledSelector({maptype: {mapType: "cesium"} })).toBe(false);
+    });
 });

@@ -6,15 +6,17 @@
  * LICENSE file in the root directory of this source tree.
 */
 
-const React = require('react');
-const PropTypes = require('prop-types');
-const {Row, Col, Glyphicon, Button} = require('react-bootstrap');
-const Toolbar = require('../toolbar/Toolbar');
-const draggableComponent = require('../enhancers/draggableComponent');
-const CoordinateEntry = require('./CoordinateEntry');
-const Message = require('../../I18N/Message');
-const {isEqual, isNumber} = require('lodash');
-const DropdownToolbarOptions = require('../toolbar/DropdownToolbarOptions');
+import React from 'react';
+
+import PropTypes from 'prop-types';
+import { Glyphicon, InputGroup } from 'react-bootstrap';
+import Toolbar from '../toolbar/Toolbar';
+import draggableComponent from '../enhancers/draggableComponent';
+import CoordinateEntry from './CoordinateEntry';
+import Message from '../../I18N/Message';
+import { isEqual, isNumber } from 'lodash';
+import DropdownToolbarOptions from '../toolbar/DropdownToolbarOptions';
+
 
 class CoordinatesRow extends React.Component {
     static propTypes = {
@@ -32,18 +34,21 @@ class CoordinatesRow extends React.Component {
         customClassName: PropTypes.string,
         isDraggable: PropTypes.bool,
         isDraggableEnabled: PropTypes.bool,
-        showLabels: PropTypes.bool,
+        showLabels: PropTypes.bool, // Remove it
         showDraggable: PropTypes.bool,
+        showToolButtons: PropTypes.bool,
         removeVisible: PropTypes.bool,
         formatVisible: PropTypes.bool,
-        removeEnabled: PropTypes.bool
+        removeEnabled: PropTypes.bool,
+        renderer: PropTypes.string
     };
 
     static defaultProps = {
-        showLabels: false,
+        showLabels: false, // Remove it
         formatVisible: false,
         onMouseEnter: () => {},
-        onMouseLeave: () => {}
+        onMouseLeave: () => {},
+        showToolButtons: true
     };
 
     constructor(props) {
@@ -67,7 +72,10 @@ class CoordinatesRow extends React.Component {
         this.setState({...this.state, [coord]: parseFloat(val)}, ()=>{
             const changeLat = parseFloat(this.state.lat) !== parseFloat(this.props.component.lat);
             const changeLon = parseFloat(this.state.lon) !== parseFloat(this.props.component.lon);
-            this.setState({...this.state, disabledApplyChange: !(changeLat || changeLon)});
+            this.setState({...this.state, disabledApplyChange: !(changeLat || changeLon)}, ()=> {
+                // Auto save on coordinate change for annotations
+                this.props.renderer === "annotations" &&  this.props.onSubmit(this.props.idx, this.state);
+            });
         });
     };
 
@@ -77,8 +85,6 @@ class CoordinatesRow extends React.Component {
 
     render() {
         const {idx} = this.props;
-        const rowStyle = {marginLeft: -5, marginRight: -5};
-        // drag button must be a button in order to show the disabled state
         const toolButtons = [
             {
                 visible: this.props.removeVisible,
@@ -92,7 +98,8 @@ class CoordinatesRow extends React.Component {
                 buttonConfig: {
                     title: <Glyphicon glyph="cog"/>,
                     className: "square-button-md no-border",
-                    pullRight: true
+                    pullRight: true,
+                    tooltipId: "identifyChangeCoordinateFormat"
                 },
                 menuOptions: [
                     {
@@ -112,22 +119,25 @@ class CoordinatesRow extends React.Component {
                 glyph: "ok",
                 disabled: this.state.disabledApplyChange,
                 tooltipId: 'identifyCoordinateApplyChanges',
-                onClick: this.onSubmit
+                onClick: this.onSubmit,
+                visible: this.props.renderer !== "annotations"
             }
         ];
+
+        // drag button cannot be a button since IE/Edge doesn't support drag operation on button
         const dragButton = (
-            <div><Button
-                disabled={!this.props.isDraggableEnabled}
-                className="square-button-md no-border btn btn-default"
-                style={{display: "flex", cursor: this.props.isDraggableEnabled && 'grab'}}>
+            <div role="button" className="square-button-md no-border btn btn-default"
+                style={{display: "table",
+                    color: !this.props.isDraggableEnabled && "#999999",
+                    pointerEvents: !this.props.isDraggableEnabled ? "none" : "auto",
+                    cursor: this.props.isDraggableEnabled && 'grab' }}>
                 <Glyphicon
                     glyph="menu-hamburger"
-                    style={{pointerEvents: !this.props.isDraggableEnabled ? "none" : "auto"}}
                 />
-            </Button></div>);
+            </div>);
 
         return (
-            <Row className={`coordinateRow ${this.props.format || ""} ${this.props.customClassName || ""}`} style={!this.props.customClassName ? rowStyle : {}} onMouseEnter={() => {
+            <div className={`coordinateRow ${this.props.format || ""} ${this.props.customClassName || ""}`} onMouseEnter={() => {
                 if (this.props.onMouseEnter && this.props.component.lat && this.props.component.lon) {
                     this.props.onMouseEnter(this.props.component);
                 }
@@ -136,70 +146,73 @@ class CoordinatesRow extends React.Component {
                     this.props.onMouseLeave();
                 }
             }}>
-                <Col xs md={1}>
+                <div style={{cursor: this.props.isDraggableEnabled ? 'grab' : "not-allowed"}}>
                     {this.props.showDraggable ? this.props.isDraggable ? this.props.connectDragSource(dragButton) : dragButton : null}
-                </Col>
-                <div className="coordinate lat" style={{width: "100%"}}>
-                    <Col xs md={4}>
-                        {this.props.showLabels && <div><Message msgId="latitude"/></div>}
-                        <CoordinateEntry
-                            format={this.props.format}
-                            aeronauticalOptions={this.props.aeronauticalOptions}
-                            coordinate="lat"
-                            idx={idx}
-                            value={this.state.lat}
-                            onChange={(dd) => this.onChangeLatLon("lat", dd)}
-                            constraints={{
-                                decimal: {
-                                    lat: {
-                                        min: -90,
-                                        max: 90
-                                    },
-                                    lon: {
-                                        min: -180,
-                                        max: 180
-                                    }
-                                }
-                            }}
-                            onKeyDown={this.onSubmit}
-                        />
-                    </Col>
                 </div>
-                <div className="coordinate lon" style={{width: "100%"}}>
-                    <Col xs md={4}>
-                        {this.props.showLabels && <div><Message msgId="longitude"/></div>}
-                        <CoordinateEntry
-                            format={this.props.format}
-                            aeronauticalOptions={this.props.aeronauticalOptions}
-                            coordinate="lon"
-                            idx={idx}
-                            value={this.state.lon}
-                            onChange={(dd) => this.onChangeLatLon("lon", dd)}
-                            constraints={{
-                                decimal: {
-                                    lat: {
-                                        min: -90,
-                                        max: 90
-                                    },
-                                    lon: {
-                                        min: -180,
-                                        max: 180
+                <div className="coordinate">
+                    <div>
+                        <InputGroup>
+                            <InputGroup.Addon><Message msgId="latitude"/></InputGroup.Addon>
+                            <CoordinateEntry
+                                format={this.props.format}
+                                aeronauticalOptions={this.props.aeronauticalOptions}
+                                coordinate="lat"
+                                idx={idx}
+                                value={this.state.lat}
+                                onChange={(dd) => this.onChangeLatLon("lat", dd)}
+                                constraints={{
+                                    decimal: {
+                                        lat: {
+                                            min: -90,
+                                            max: 90
+                                        },
+                                        lon: {
+                                            min: -180,
+                                            max: 180
+                                        }
                                     }
-                                }
-                            }}
-                            onKeyDown={this.onSubmit}
-                        />
-                    </Col>
+                                }}
+                                onKeyDown={this.onSubmit}
+                            />
+                        </InputGroup>
+                    </div>
+                    <div>
+                        <InputGroup>
+                            <InputGroup.Addon><Message msgId="longitude"/></InputGroup.Addon>
+                            <CoordinateEntry
+                                format={this.props.format}
+                                aeronauticalOptions={this.props.aeronauticalOptions}
+                                coordinate="lon"
+                                idx={idx}
+                                value={this.state.lon}
+                                onChange={(dd) => this.onChangeLatLon("lon", dd)}
+                                constraints={{
+                                    decimal: {
+                                        lat: {
+                                            min: -90,
+                                            max: 90
+                                        },
+                                        lon: {
+                                            min: -180,
+                                            max: 180
+                                        }
+                                    }
+                                }}
+                                onKeyDown={this.onSubmit}
+                            />
+                        </InputGroup>
+                    </div>
                 </div>
-                <Col key="tools" xs md={3}>
+                {this.props.showToolButtons && <div key="tools">
                     <Toolbar
-                        btnGroupProps={{ className: 'tools' }}
-                        btnDefaultProps={{ className: 'square-button-md no-border'}}
+                        btnGroupProps={{className: 'tools'}}
+                        btnDefaultProps={{className: 'square-button-md no-border'}}
                         buttons={toolButtons}/>
-                </Col>
-            </Row>
+                </div>
+                }
+            </div>
         );
     }
 }
 
-module.exports = draggableComponent(CoordinatesRow);
+export default draggableComponent(CoordinatesRow);

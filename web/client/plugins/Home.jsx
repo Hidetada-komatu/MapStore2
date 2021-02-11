@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2016, GeoSolutions Sas.
  * All rights reserved.
  *
@@ -6,28 +6,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const React = require('react');
+import React from 'react';
 
-const assign = require('object-assign');
-
-const {goToPage} = require('../actions/router');
-
-const Message = require('./locale/Message');
-
-const {Glyphicon} = require('react-bootstrap');
-
-const Home = require('../components/home/Home');
-
-const {connect} = require('react-redux');
-const {checkMapChanges} = require('../actions/map');
-const {setControlProperty} = require('../actions/controls');
-const {unsavedMapSelector, unsavedMapSourceSelector} = require('../selectors/controls');
-const {feedbackMaskSelector} = require('../selectors/feedbackmask');
-const ConfigUtils = require('../utils/ConfigUtils');
+import assign from 'object-assign';
+import { goToPage } from '../actions/router';
+import { comparePendingChanges } from '../epics/pendingChanges';
+import Message from './locale/Message';
+import { Glyphicon } from 'react-bootstrap';
+import Home from '../components/home/Home';
+import { connect } from 'react-redux';
+import { checkPendingChanges } from '../actions/pendingChanges';
+import { setControlProperty } from '../actions/controls';
+import { unsavedMapSelector, unsavedMapSourceSelector } from '../selectors/controls';
+import { feedbackMaskSelector } from '../selectors/feedbackmask';
+import ConfigUtils from '../utils/ConfigUtils';
 
 const checkUnsavedMapChanges = (action) => {
     return dispatch => {
-        dispatch(checkMapChanges(action, 'gohome'));
+        dispatch(checkPendingChanges(action, 'gohome'));
     };
 };
 
@@ -35,13 +31,24 @@ const HomeConnected = connect((state) => ({
     renderUnsavedMapChangesDialog: ConfigUtils.getConfigProp('unsavedMapChangesDialog'),
     displayUnsavedDialog: unsavedMapSelector(state)
         && unsavedMapSourceSelector(state) === 'gohome'
-        && feedbackMaskSelector(state).currentPage === 'viewer'
+        && (feedbackMaskSelector(state).currentPage === 'viewer'
+        || feedbackMaskSelector(state).currentPage === 'geostory'
+        || feedbackMaskSelector(state).currentPage === 'dashboard')
 }), {
     onCheckMapChanges: checkUnsavedMapChanges,
     onCloseUnsavedDialog: setControlProperty.bind(null, 'unsavedMap', 'enabled', false)
 })(Home);
 
-module.exports = {
+/**
+ * Renders a button that redirects to the home page.
+ * It can be rendered in {@link #plugins.OmniBar|OmniBar}.
+ * Supports as containers, lower priority, also {@link #plugins.BurgerMenu|BurgerMenu}
+ * or {@link #plugins.Toolbar|Toolbar}.
+ * @name Home
+ * @class
+ * @memberof plugins
+ */
+export default {
     HomePlugin: assign(HomeConnected, {
         Toolbar: {
             name: 'home',
@@ -68,5 +75,6 @@ module.exports = {
             priority: 3
         }
     }),
-    reducers: {}
+    reducers: {},
+    epics: { comparePendingChanges }
 };
